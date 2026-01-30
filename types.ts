@@ -20,10 +20,18 @@ export interface PaymentConfig {
   merchantId: string;
   currency: string;
   enabled: boolean;
+  photoPrice: number;
 }
 
 export interface AdminSettings {
   passwordHash: string;
   username: string;
   payment: PaymentConfig;
+}
+
+export interface CartItem {
+  id: string;
+  styledImage: string;
+  styleName: string;
+  price: number;
 }

@@ -4,7 +4,7 @@ import { StyleTemplate, ApiKeyRecord, AdminSettings } from '../types';
 import { storageService } from '../services/storage';
 
 const AdminView: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(storageService.isAdminLoggedIn());
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   
@@ -22,6 +22,7 @@ const AdminView: React.FC = () => {
     if (isAuthenticated) {
       setStyles(storageService.getStyles());
       setApiKeys(storageService.getApiKeys());
+      setAdminSettings(storageService.getAdminSettings());
     }
   }, [isAuthenticated]);
 
@@ -30,10 +31,16 @@ const AdminView: React.FC = () => {
     const settings = storageService.getAdminSettings();
     if (loginForm.username === settings.username && loginForm.password === settings.passwordHash) {
       setIsAuthenticated(true);
+      storageService.setAdminLoggedIn(true);
       setLoginError('');
     } else {
       setLoginError('Invalid username or password');
     }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    storageService.setAdminLoggedIn(false);
   };
 
   const handleSaveStyle = (e: React.FormEvent) => {
@@ -71,6 +78,31 @@ const AdminView: React.FC = () => {
       image: style.imageUrl
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleAddKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!keyForm.key) return;
+
+    const newKey: ApiKeyRecord = {
+      id: Date.now().toString(),
+      key: keyForm.key,
+      label: keyForm.label || `Key ${apiKeys.length + 1}`,
+      status: 'active',
+      addedAt: Date.now()
+    };
+
+    const updatedKeys = [...apiKeys, newKey];
+    storageService.saveApiKeys(updatedKeys);
+    setApiKeys(updatedKeys);
+    setKeyForm({ key: '', label: '' });
+    alert('API Key registered successfully');
+  };
+
+  const handleSavePaymentConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    storageService.saveAdminSettings(adminSettings);
+    alert('Payment configuration saved!');
   };
 
   const handlePasswordChange = (e: React.FormEvent) => {
@@ -128,7 +160,7 @@ const AdminView: React.FC = () => {
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-3xl font-bold text-slate-800">Admin Control Center</h2>
-        <button onClick={() => setIsAuthenticated(false)} className="text-sm text-slate-400 hover:text-slate-600 font-medium underline">Sign Out</button>
+        <button onClick={handleLogout} className="text-sm text-slate-400 hover:text-slate-600 font-medium underline">Sign Out</button>
       </div>
 
       <div className="flex border-b border-slate-200 overflow-x-auto">
@@ -226,7 +258,6 @@ const AdminView: React.FC = () => {
               <select className="w-full px-4 py-3 rounded-xl border outline-none">
                 <option>Stripe</option>
                 <option>PayPal</option>
-                <option>Razorpay</option>
               </select>
             </div>
             <div>
@@ -234,24 +265,48 @@ const AdminView: React.FC = () => {
               <select className="w-full px-4 py-3 rounded-xl border outline-none">
                 <option>USD</option>
                 <option>EUR</option>
-                <option>GBP</option>
-                <option>INR</option>
               </select>
             </div>
           </div>
-          <input type="text" placeholder="Merchant ID" defaultValue="m_test_99887766" className="w-full px-4 py-3 rounded-xl border outline-none" />
-          <button className="w-full py-4 bg-green-600 text-white rounded-xl font-bold">Save Payment Config</button>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Photo Download Price ($)</label>
+            <input 
+              type="number" 
+              step="0.01"
+              value={adminSettings.payment.photoPrice}
+              onChange={e => setAdminSettings({...adminSettings, payment: {...adminSettings.payment, photoPrice: parseFloat(e.target.value)}})}
+              className="w-full px-4 py-3 rounded-xl border outline-none" 
+            />
+          </div>
+          <button onClick={handleSavePaymentConfig} className="w-full py-4 bg-green-600 text-white rounded-xl font-bold">Save Configuration</button>
         </div>
       )}
 
       {activeTab === 'keys' && (
         <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl border shadow-sm space-y-6">
           <h3 className="text-xl font-bold">API Key Pool</h3>
-          <div className="flex gap-2">
-            <input type="password" placeholder="Paste Gemini API Key" className="flex-grow px-4 py-3 rounded-xl border outline-none" />
-            <button className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold">Add Key</button>
+          <form onSubmit={handleAddKey} className="flex gap-2">
+            <input 
+              type="password" 
+              placeholder="Paste Gemini API Key" 
+              value={keyForm.key}
+              onChange={e => setKeyForm({...keyForm, key: e.target.value})}
+              className="flex-grow px-4 py-3 rounded-xl border outline-none" 
+            />
+            <button type="submit" className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold">Add Key</button>
+          </form>
+          <div className="space-y-2">
+            {apiKeys.map(k => (
+              <div key={k.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border">
+                <span className="font-mono text-xs">••••••••{k.key.slice(-4)}</span>
+                <button onClick={() => {
+                  const updated = apiKeys.filter(item => item.id !== k.id);
+                  storageService.saveApiKeys(updated);
+                  setApiKeys(updated);
+                }} className="text-red-500 text-xs font-bold">Remove</button>
+              </div>
+            ))}
           </div>
-          <p className="text-sm text-slate-400 italic text-center">Rotate keys to bypass rate limits.</p>
         </div>
       )}
     </div>

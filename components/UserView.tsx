@@ -1,10 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
-import { StyleTemplate } from '../types';
+import { StyleTemplate, CartItem } from '../types';
 import { storageService } from '../services/storage';
 import { geminiService } from '../services/geminiService';
 
-const UserView: React.FC = () => {
+interface UserViewProps {
+  cart: CartItem[];
+  addToCart: (item: CartItem) => void;
+  showCheckout: boolean;
+  setShowCheckout: (val: boolean) => void;
+  removeFromCart: (id: string) => void;
+}
+
+const UserView: React.FC<UserViewProps> = ({ cart, addToCart, showCheckout, setShowCheckout, removeFromCart }) => {
   const [styles, setStyles] = useState<StyleTemplate[]>([]);
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<StyleTemplate | null>(null);
@@ -12,10 +20,11 @@ const UserView: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showCheckout, setShowCheckout] = useState(false);
+  const [price, setPrice] = useState(9.99);
 
   useEffect(() => {
     setStyles(storageService.getStyles());
+    setPrice(storageService.getAdminSettings().payment.photoPrice);
   }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,6 +53,20 @@ const UserView: React.FC = () => {
       setIsGenerating(false);
     }
   };
+
+  const handleAddToCart = () => {
+    if (!generatedImage || !selectedStyle) return;
+    const newItem: CartItem = {
+      id: Date.now().toString(),
+      styledImage: generatedImage,
+      styleName: selectedStyle.name,
+      price: price,
+    };
+    addToCart(newItem);
+    alert(`${selectedStyle.name} added to cart!`);
+  };
+
+  const cartTotal = cart.reduce((sum, item) => sum + item.price, 0);
 
   return (
     <div className="space-y-12">
@@ -101,7 +124,6 @@ const UserView: React.FC = () => {
               {generatedImage ? (
                 <div className="relative w-full h-full">
                   <img src={generatedImage} className="w-full h-full object-cover animate-in fade-in zoom-in duration-500" />
-                  {/* WATERMARK OVERLAY */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
                     <div className="transform -rotate-45 text-white/40 text-4xl font-black uppercase tracking-tighter mix-blend-overlay">
                       StyleSwapAI.com
@@ -119,7 +141,7 @@ const UserView: React.FC = () => {
             {generatedImage && !isGenerating && (
               <div className="absolute bottom-6 left-6 right-6 flex gap-3">
                 <button 
-                  onClick={() => alert('Added to your collection!')}
+                  onClick={handleAddToCart}
                   className="flex-1 py-4 bg-white/90 backdrop-blur rounded-2xl text-slate-800 font-bold text-sm shadow-lg hover:bg-white transition-all flex items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
@@ -129,7 +151,7 @@ const UserView: React.FC = () => {
                   onClick={() => setShowCheckout(true)}
                   className="flex-1 py-4 bg-indigo-600 rounded-2xl text-white font-bold text-sm shadow-lg hover:bg-indigo-700 transition-all"
                 >
-                  Buy High-Res No Watermark
+                  Buy Now (${price})
                 </button>
               </div>
             )}
@@ -158,7 +180,6 @@ const UserView: React.FC = () => {
         </div>
       </section>
 
-      {/* CHECKOUT MODAL */}
       {showCheckout && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowCheckout(false)} />
@@ -172,17 +193,27 @@ const UserView: React.FC = () => {
                 <button onClick={() => setShowCheckout(false)} className="p-2 hover:bg-slate-100 rounded-full">✕</button>
               </div>
 
-              <div className="p-6 bg-slate-50 rounded-3xl border space-y-4">
-                <div className="flex justify-between font-bold">
-                  <span>Custom Styled Portrait</span>
-                  <span>$9.99</span>
-                </div>
-                <div className="text-xs text-slate-400 space-y-1">
-                  <p>• High Resolution (4096px)</p>
-                  <p>• No Watermark</p>
-                  <p>• Commercial Rights Included</p>
-                </div>
+              <div className="max-h-48 overflow-y-auto space-y-2 pr-2">
+                {cart.length > 0 ? cart.map(item => (
+                  <div key={item.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border">
+                    <img src={item.styledImage} className="w-12 h-12 rounded-lg object-cover" />
+                    <div className="flex-grow">
+                      <p className="font-bold text-sm">{item.styleName}</p>
+                      <p className="text-xs text-indigo-600 font-bold">${item.price}</p>
+                    </div>
+                    <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 p-1">✕</button>
+                  </div>
+                )) : (
+                  <div className="text-center py-6 text-slate-400 italic">Your cart is empty</div>
+                )}
               </div>
+
+              {cart.length > 0 && (
+                <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex justify-between font-bold text-indigo-900">
+                  <span>Order Total</span>
+                  <span>${cartTotal.toFixed(2)}</span>
+                </div>
+              )}
 
               <div className="space-y-3">
                 <input type="email" placeholder="Delivery Email" className="w-full px-5 py-4 rounded-2xl border outline-none focus:ring-2 focus:ring-indigo-500" />
@@ -192,8 +223,12 @@ const UserView: React.FC = () => {
                 </div>
               </div>
 
-              <button className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl hover:bg-indigo-700 transition-all">
-                Pay with Stripe
+              <button 
+                onClick={() => { alert('Thank you for your purchase! (Demo)'); setShowCheckout(false); }}
+                disabled={cart.length === 0}
+                className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl hover:bg-indigo-700 transition-all disabled:opacity-50"
+              >
+                Complete Payment
               </button>
               
               <p className="text-center text-[10px] text-slate-400 uppercase font-bold tracking-widest">Secure Checkout Powered by StyleSwap</p>
