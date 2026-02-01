@@ -44,6 +44,7 @@ const App: React.FC = () => {
         return (
           <UserView 
             cart={cart}
+            setCart={setCart}
             user={null}
             addToCart={addToCart}
             showCheckout={showCheckoutModal}

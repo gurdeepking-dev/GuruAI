@@ -16,6 +16,7 @@ interface UserViewProps {
   removeFromCart: (id: string) => void;
   onLoginRequired: () => void;
   onUserUpdate: () => void;
+  setCart: (cart: CartItem[]) => void;
 }
 
 interface GenerationState {
@@ -29,7 +30,7 @@ interface GenerationState {
 }
 
 const UserView: React.FC<UserViewProps> = ({ 
-  cart, user, addToCart, showCheckout, setShowCheckout, removeFromCart, onLoginRequired, onUserUpdate 
+  cart, user, addToCart, showCheckout, setShowCheckout, removeFromCart, setCart
 }) => {
   const [styles, setStyles] = useState<StyleTemplate[]>([]);
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
@@ -100,7 +101,7 @@ const UserView: React.FC<UserViewProps> = ({
 
   const handleClaimFree = (styleId: string) => {
     if (freePhotoClaimed) {
-      alert(`You have already claimed your free photo. New ones are only ${currencySymbol}${settings.payment.photoPrice}!`);
+      alert(`You have already claimed your free photo.`);
       return;
     }
 
@@ -125,16 +126,20 @@ const UserView: React.FC<UserViewProps> = ({
     const style = styles.find(s => s.id === styleId);
     if (!state.result || !style) return;
 
+    if (cart.find(item => item.id === styleId)) {
+      setShowCheckout(true);
+      return;
+    }
+
     const currentPrice = settings.payment.photoPrice || 5.00;
 
     const newItem: CartItem = {
-      id: Date.now().toString(),
+      id: style.id, 
       styledImage: state.result,
       styleName: style.name,
       price: currentPrice,
     };
     addToCart(newItem);
-    alert(`${style.name} added to your cart!`);
   };
 
   const handleDownload = (styleId: string) => {
@@ -147,6 +152,28 @@ const UserView: React.FC<UserViewProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handlePaymentComplete = (paidItemIds: string[]) => {
+    // 1. Mark as high-res locally to remove watermarks
+    setGenStates(prev => {
+      const newState = { ...prev };
+      paidItemIds.forEach(id => {
+        if (newState[id]) {
+          newState[id] = { ...newState[id], isHighRes: true };
+        }
+      });
+      return newState;
+    });
+
+    // 2. Clear global cart
+    setCart([]);
+    
+    // 3. Close the modal
+    setShowCheckout(false);
+    
+    // 4. Confirmation
+    alert("Real-time Payment Successful! Watermarks removed from your chosen masterpieces. You can download them now.");
   };
 
   return (
@@ -288,17 +315,17 @@ const UserView: React.FC<UserViewProps> = ({
                         {state.isHighRes ? (
                           <button 
                             onClick={() => handleDownload(s.id)}
-                            className="w-full py-5 bg-green-600 text-white rounded-[1.5rem] font-black shadow-xl hover:bg-green-700 transition-all flex items-center justify-center gap-3"
+                            className="w-full py-5 bg-green-600 text-white rounded-[1.5rem] font-black shadow-xl hover:bg-green-700 transition-all flex items-center justify-center gap-3 active:scale-95"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                            Download Masterpiece
+                            Download High-Res
                           </button>
                         ) : (
                           <div className="grid grid-cols-1 gap-3">
                             {!freePhotoClaimed ? (
                                <button 
                                 onClick={() => handleClaimFree(s.id)}
-                                className="w-full py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-[1.5rem] font-black shadow-xl hover:opacity-90 transition-all"
+                                className="w-full py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-[1.5rem] font-black shadow-xl hover:opacity-90 transition-all active:scale-95"
                               >
                                 Claim My 1st Photo FREE
                               </button>
@@ -307,13 +334,13 @@ const UserView: React.FC<UserViewProps> = ({
                             <div className="grid grid-cols-2 gap-3">
                                 <button 
                                   onClick={() => handleAddToCart(s.id)}
-                                  className="py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+                                  className="py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95"
                                 >
-                                  Add to Cart
+                                  {cart.find(item => item.id === s.id) ? 'In Cart' : 'Add to Cart'}
                                 </button>
                                 <button 
                                   onClick={() => { handleAddToCart(s.id); setShowCheckout(true); }}
-                                  className="py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg"
+                                  className="py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95"
                                 >
                                   Buy Now
                                 </button>
@@ -337,10 +364,7 @@ const UserView: React.FC<UserViewProps> = ({
         onClose={() => setShowCheckout(false)}
         cart={cart}
         onRemove={removeFromCart}
-        onComplete={() => {
-          alert("Payment Simulated Successful! Your high-res versions are unlocked.");
-          setShowCheckout(false);
-        }}
+        onComplete={handlePaymentComplete}
       />
     </div>
   );

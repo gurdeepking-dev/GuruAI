@@ -12,6 +12,7 @@ const AdminView: React.FC = () => {
   const [apiKeys, setApiKeys] = useState<ApiKeyRecord[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(storageService.getAdminSettings());
   const [activeTab, setActiveTab] = useState<'styles' | 'keys' | 'security' | 'payment'>('styles');
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   // Form states
   const [styleForm, setStyleForm] = useState({ id: '', name: '', prompt: '', description: '', image: '' });
@@ -67,7 +68,12 @@ const AdminView: React.FC = () => {
     
     setStyles(storageService.getStyles());
     setStyleForm({ id: '', name: '', prompt: '', description: '', image: '' });
-    alert('Style template saved successfully.');
+    showNotification('Style saved');
+  };
+
+  const showNotification = (msg: string) => {
+    setSaveStatus(msg);
+    setTimeout(() => setSaveStatus(null), 3000);
   };
 
   const handleEditStyle = (style: StyleTemplate) => {
@@ -97,13 +103,13 @@ const AdminView: React.FC = () => {
     storageService.saveApiKeys(updatedKeys);
     setApiKeys(updatedKeys);
     setKeyForm({ key: '', label: '' });
-    alert('API Key registered in the pool.');
+    showNotification('Key added');
   };
 
   const handleSavePaymentConfig = (e: React.FormEvent) => {
     e.preventDefault();
     storageService.saveAdminSettings(adminSettings);
-    alert('Razorpay payment configuration updated.');
+    showNotification('Settings saved permanently');
   };
 
   const handleChangePassword = (e: React.FormEvent) => {
@@ -127,7 +133,7 @@ const AdminView: React.FC = () => {
     storageService.saveAdminSettings(updated);
     setAdminSettings(updated);
     setPassForm({ old: '', new: '', confirm: '' });
-    alert('Security credentials updated.');
+    showNotification('Password updated');
   };
 
   if (!isAuthenticated) {
@@ -157,7 +163,13 @@ const AdminView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in duration-500">
+    <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in duration-500 pb-20">
+      {saveStatus && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-2xl font-black shadow-2xl z-50 animate-in slide-in-from-bottom-4">
+          {saveStatus}
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Control Center</h2>
         <div className="flex gap-4">
