@@ -16,8 +16,9 @@ export interface ApiKeyRecord {
 }
 
 export interface PaymentConfig {
-  gateway: string;
-  merchantId: string;
+  gateway: 'Razorpay';
+  keyId: string;
+  keySecret: string;
   currency: string;
   enabled: boolean;
   photoPrice: number;
@@ -35,3 +36,11 @@ export interface CartItem {
   styleName: string;
   price: number;
 }
+
+// Fix: Added missing User interface to resolve import errors in components/UserView.tsx and services/authService.ts
+export interface User {
+  email: string;
+  isLoggedIn: boolean;
+}
+
+export type ViewType = 'home' | 'admin' | 'about' | 'contact';
