@@ -5,6 +5,7 @@ export interface StyleTemplate {
   imageUrl: string;
   prompt: string;
   description: string;
+  created_at?: string;
 }
 
 export interface ApiKeyRecord {
@@ -37,10 +38,19 @@ export interface CartItem {
   price: number;
 }
 
-// Fix: Added missing User interface to resolve import errors in components/UserView.tsx and services/authService.ts
 export interface User {
   email: string;
   isLoggedIn: boolean;
+}
+
+export interface TransactionRecord {
+  id?: string;
+  razorpay_payment_id: string;
+  user_email: string;
+  amount: number;
+  items: string[];
+  status: 'success' | 'failed';
+  created_at?: string;
 }
 
 export type ViewType = 'home' | 'admin' | 'about' | 'contact';

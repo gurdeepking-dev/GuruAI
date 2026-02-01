@@ -1,8 +1,8 @@
 
-import { StyleTemplate, ApiKeyRecord, AdminSettings } from '../types';
+import { StyleTemplate, ApiKeyRecord, AdminSettings, TransactionRecord } from '../types';
+import { supabase, isCloudEnabled } from './supabase';
+import { logger } from './logger';
 
-const STYLES_KEY = 'styleswap_templates';
-const KEYS_KEY = 'styleswap_api_keys';
 const ADMIN_KEY = 'styleswap_admin_settings';
 const SESSION_KEY = 'styleswap_admin_session';
 
@@ -13,41 +13,6 @@ const DEFAULT_STYLES: StyleTemplate[] = [
     imageUrl: 'https://images.unsplash.com/photo-1610034603010-0a3733e07d9b?w=800&q=80',
     prompt: 'Transform this person into a magnificent Indian bride/groom wearing traditional royal wedding attire. Use intricate jewelry, rich silk embroidery, and a grand palace background with warm golden lighting.',
     description: 'Majestic traditional elegance with rich cultural details.'
-  },
-  {
-    id: '2',
-    name: 'Ghibli Style Wedding',
-    imageUrl: 'https://images.unsplash.com/photo-1634926878768-2a5b3c42f139?w=800&q=80',
-    prompt: 'Reimagine this wedding portrait in the beautiful, hand-drawn anime style of Studio Ghibli. Soft watercolor textures, whimsical lighting, and a romantic meadow background with floating petals.',
-    description: 'Whimsical watercolor romance in a magical anime world.'
-  },
-  {
-    id: '3',
-    name: 'Cyberpunk Union',
-    imageUrl: 'https://images.unsplash.com/photo-1605810230434-7631ac76ec81?w=800&q=80',
-    prompt: 'A high-tech cyberpunk wedding portrait. The person wears tech-integrated formal wear with glowing neon circuitry, cybernetic enhancements, and a rainy Neo-Tokyo neon cityscape background.',
-    description: 'Neon-infused futuristic love set in a rainy cityscape.'
-  },
-  {
-    id: '4',
-    name: 'Classic Ethereal Wedding',
-    imageUrl: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&q=80',
-    prompt: 'Convert this photo into a timeless western wedding portrait. Elegant white gown or sharp tuxedo, soft ethereal lighting, bokeh background of a sunlit garden, and a dreamlike atmosphere.',
-    description: 'Timeless and ethereal beauty with a soft, dreamlike glow.'
-  },
-  {
-    id: '5',
-    name: '3D Pixar Romance',
-    imageUrl: 'https://images.unsplash.com/photo-1620336655055-088d06e36bf0?w=800&q=80',
-    prompt: 'Transform this person into a high-fidelity 3D animated character from a modern Pixar movie. Expressive large eyes, stylized facial features, vibrant colors, and cinematic soft-focus lighting.',
-    description: 'Charming 3D animation style with expressive features.'
-  },
-  {
-    id: '6',
-    name: 'Artistic Charcoal Sketch',
-    imageUrl: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&q=80',
-    prompt: 'Transform this photo into a detailed hand-drawn charcoal and pencil sketch on textured paper. Masterful shading, delicate lines, and an artistic fine-art aesthetic.',
-    description: 'Elegant hand-drawn fine art with realistic charcoal textures.'
   }
 ];
 
@@ -56,8 +21,8 @@ const DEFAULT_ADMIN: AdminSettings = {
   passwordHash: 'admin123',
   payment: {
     gateway: 'Razorpay',
-    keyId: '',
-    keySecret: '',
+    keyId: process.env.RAZORPAY_KEY_ID || '',
+    keySecret: process.env.RAZORPAY_KEY_SECRET || '',
     currency: 'INR',
     enabled: true,
     photoPrice: 5.00
@@ -65,49 +30,111 @@ const DEFAULT_ADMIN: AdminSettings = {
 };
 
 export const storageService = {
-  getStyles: (): StyleTemplate[] => {
-    const data = localStorage.getItem(STYLES_KEY);
-    return data ? JSON.parse(data) : DEFAULT_STYLES;
+  getStyles: async (): Promise<StyleTemplate[]> => {
+    logger.debug('Data', 'Fetching style templates');
+    if (isCloudEnabled && supabase) {
+      const { data, error } = await supabase.from('style_templates').select('*').order('created_at', { ascending: true });
+      if (!error && data) {
+        logger.info('Data', `Loaded ${data.length} styles from Cloud`);
+        return data;
+      }
+      logger.error('Data', 'Cloud styles fetch failed', error);
+    }
+    const localData = localStorage.getItem('styleswap_templates');
+    logger.info('Data', 'Loaded styles from LocalStorage fallback');
+    return localData ? JSON.parse(localData) : DEFAULT_STYLES;
   },
-  saveStyles: (styles: StyleTemplate[]) => {
-    localStorage.setItem(STYLES_KEY, JSON.stringify(styles));
+
+  saveStyle: async (style: StyleTemplate) => {
+    logger.info('Data', `Saving style: ${style.name}`);
+    if (isCloudEnabled && supabase) {
+      const { error } = await supabase.from('style_templates').upsert(style);
+      if (!error) {
+        logger.info('Data', 'Style synced to Cloud');
+        return;
+      }
+      logger.error('Data', 'Cloud style save failed', error);
+    }
+    const styles = await storageService.getStyles();
+    const updated = styles.some(s => s.id === style.id) 
+      ? styles.map(s => s.id === style.id ? style : s)
+      : [...styles, style];
+    localStorage.setItem('styleswap_templates', JSON.stringify(updated));
   },
-  updateStyle: (updated: StyleTemplate) => {
-    const styles = storageService.getStyles();
-    storageService.saveStyles(styles.map(s => s.id === updated.id ? updated : s));
+
+  deleteStyle: async (id: string) => {
+    logger.info('Data', `Deleting style: ${id}`);
+    if (isCloudEnabled && supabase) {
+      const { error } = await supabase.from('style_templates').delete().eq('id', id);
+      if (error) logger.error('Data', 'Cloud style delete failed', error);
+    }
+    const styles = await storageService.getStyles();
+    localStorage.setItem('styleswap_templates', JSON.stringify(styles.filter(s => s.id !== id)));
   },
-  addStyle: (style: StyleTemplate) => {
-    const styles = storageService.getStyles();
-    storageService.saveStyles([...styles, style]);
-  },
-  deleteStyle: (id: string) => {
-    const styles = storageService.getStyles();
-    storageService.saveStyles(styles.filter(s => s.id !== id));
-  },
-  getApiKeys: (): ApiKeyRecord[] => {
-    const data = localStorage.getItem(KEYS_KEY);
+
+  getApiKeys: async (): Promise<ApiKeyRecord[]> => {
+    if (isCloudEnabled && supabase) {
+      const { data, error } = await supabase.from('api_key_pool').select('*');
+      if (!error && data) return data;
+    }
+    const data = localStorage.getItem('styleswap_api_keys');
     return data ? JSON.parse(data) : [];
   },
-  saveApiKeys: (keys: ApiKeyRecord[]) => {
-    localStorage.setItem(KEYS_KEY, JSON.stringify(keys));
+
+  saveApiKey: async (key: ApiKeyRecord) => {
+    logger.info('Data', 'Adding new API key to pool');
+    if (isCloudEnabled && supabase) {
+      await supabase.from('api_key_pool').upsert(key);
+    }
+    const keys = await storageService.getApiKeys();
+    localStorage.setItem('styleswap_api_keys', JSON.stringify([...keys, key]));
   },
-  getAdminSettings: (): AdminSettings => {
+
+  deleteApiKey: async (id: string) => {
+    if (isCloudEnabled && supabase) {
+      await supabase.from('api_key_pool').delete().eq('id', id);
+    }
+    const keys = await storageService.getApiKeys();
+    localStorage.setItem('styleswap_api_keys', JSON.stringify(keys.filter(k => k.id !== id)));
+  },
+
+  getAdminSettings: async (): Promise<AdminSettings> => {
+    if (isCloudEnabled && supabase) {
+      const { data, error } = await supabase.from('admin_settings').select('settings').single();
+      if (!error && data) return data.settings;
+    }
     const data = localStorage.getItem(ADMIN_KEY);
     return data ? JSON.parse(data) : DEFAULT_ADMIN;
   },
-  saveAdminSettings: (settings: AdminSettings) => {
+
+  saveAdminSettings: async (settings: AdminSettings) => {
+    logger.info('Data', 'Updating global admin settings');
+    if (isCloudEnabled && supabase) {
+      await supabase.from('admin_settings').upsert({ id: 'current', settings });
+    }
     localStorage.setItem(ADMIN_KEY, JSON.stringify(settings));
   },
+
+  saveTransaction: async (tx: TransactionRecord) => {
+    logger.info('Payment', 'Logging transaction', { id: tx.razorpay_payment_id });
+    if (isCloudEnabled && supabase) {
+      const { error } = await supabase.from('transactions').insert(tx);
+      if (error) logger.error('Payment', 'Cloud transaction log failed', error);
+      else logger.info('Payment', 'Transaction synced to Cloud');
+    }
+  },
+
   isAdminLoggedIn: (): boolean => {
     return localStorage.getItem(SESSION_KEY) === 'true';
   },
+
   setAdminLoggedIn: (status: boolean) => {
     if (status) localStorage.setItem(SESSION_KEY, 'true');
     else localStorage.removeItem(SESSION_KEY);
   },
-  getCurrencySymbol: (): string => {
-    const settings = storageService.getAdminSettings();
-    switch (settings.payment.currency) {
+
+  getCurrencySymbol: (currency: string = 'INR'): string => {
+    switch (currency) {
       case 'INR': return '₹';
       case 'USD': return '$';
       case 'EUR': return '€';
