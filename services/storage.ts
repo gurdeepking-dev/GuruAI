@@ -1,5 +1,5 @@
 
-import { StyleTemplate, AdminSettings, TransactionRecord } from '../types';
+import { StyleTemplate, AdminSettings, TransactionRecord, ApiKeyRecord } from '../types';
 import { logger } from './logger';
 import { supabase } from './supabase';
 import { imageStorage } from './imageStorage';
@@ -24,6 +24,7 @@ export const DEFAULT_STYLES: StyleTemplate[] = [
 export const DEFAULT_ADMIN: AdminSettings = {
   username: 'admin',
   passwordHash: 'admin123',
+  geminiApiKeys: [],
   payment: {
     gateway: 'Razorpay',
     keyId: process.env.RAZORPAY_KEY_ID || '',
@@ -36,11 +37,8 @@ export const DEFAULT_ADMIN: AdminSettings = {
 
 export const storageService = {
   async getStyles(forceRefresh = false): Promise<StyleTemplate[]> {
-    // Cache-First strategy: Return cached data immediately if available
     const cached = localStorage.getItem(STYLES_CACHE_KEY);
     if (cached && !forceRefresh) {
-      logger.debug('Storage', 'Returning styles from cache');
-      // Still fetch in background to update cache
       this.fetchStylesFromDB().then(freshData => {
         if (freshData.length > 0) {
           localStorage.setItem(STYLES_CACHE_KEY, JSON.stringify(freshData));
@@ -48,7 +46,6 @@ export const storageService = {
       });
       return JSON.parse(cached);
     }
-
     return this.fetchStylesFromDB();
   },
 
@@ -57,17 +54,9 @@ export const storageService = {
       const { data, error } = await supabase.from('styles').select('*').order('created_at', { ascending: true });
       if (error) throw error;
       
-      // Initial Sync check
       if ((!data || data.length === 0) && !localStorage.getItem(INITIALIZED_KEY)) {
-        logger.info('Storage', 'Initial sync triggered: Parallel uploading defaults...');
-        // Set key immediately to prevent race conditions
         localStorage.setItem(INITIALIZED_KEY, 'true');
-        
-        // Use Promise.all for parallel uploads (Much faster than sequential loop)
-        Promise.all(DEFAULT_STYLES.map(s => this.saveStyle(s)))
-          .then(() => logger.info('Storage', 'Background parallel sync completed'))
-          .catch(e => logger.error('Storage', 'Background sync failed', e));
-
+        Promise.all(DEFAULT_STYLES.map(s => this.saveStyle(s)));
         return DEFAULT_STYLES;
       }
 
@@ -77,7 +66,6 @@ export const storageService = {
       }
       return styles;
     } catch (err) {
-      logger.error('Storage', 'Supabase Styles Fetch Failed', err);
       return DEFAULT_STYLES;
     }
   },
@@ -90,28 +78,15 @@ export const storageService = {
       created_at: style.created_at || new Date().toISOString()
     });
     if (error) throw error;
-    // Clear cache to force refresh on next load
     localStorage.removeItem(STYLES_CACHE_KEY);
   },
 
   async deleteStyle(id: string): Promise<void> {
-    logger.debug('Storage', 'Attempting to delete style row', { id });
-    
     try {
-      const response = await supabase
-        .from('styles')
-        .delete()
-        .eq('id', id);
-
-      if (response.error) {
-        throw response.error;
-      }
-      
+      const response = await supabase.from('styles').delete().eq('id', id);
+      if (response.error) throw response.error;
       localStorage.removeItem(STYLES_CACHE_KEY);
-      logger.info('Storage', 'Style deleted and cache invalidated', { id });
-
     } catch (err: any) {
-      logger.error('Storage', 'Critical failure during deleteStyle service call', err);
       throw err;
     }
   },
@@ -138,7 +113,20 @@ export const storageService = {
         return DEFAULT_ADMIN;
       }
       
-      return data.config as AdminSettings;
+      const settings = data.config as AdminSettings;
+      
+      // Sync legacy geminiApiKey if pool is empty
+      if (settings.geminiApiKey && (!settings.geminiApiKeys || settings.geminiApiKeys.length === 0)) {
+        settings.geminiApiKeys = [{
+          id: 'legacy-key',
+          key: settings.geminiApiKey,
+          label: 'Default Key',
+          status: 'active',
+          addedAt: Date.now()
+        }];
+      }
+      
+      return settings;
     } catch (err) {
       return DEFAULT_ADMIN;
     }
@@ -150,10 +138,9 @@ export const storageService = {
       config: settings
     });
     if (error) {
-      logger.error('Storage', 'Failed to save settings to Supabase', error);
+      logger.error('Storage', 'Failed to save settings', error);
       throw error;
     }
-    logger.info('Storage', 'Settings saved to Supabase successfully');
   },
 
   isAdminLoggedIn(): boolean {

@@ -29,6 +29,8 @@ export interface AdminSettings {
   passwordHash: string;
   username: string;
   payment: PaymentConfig;
+  geminiApiKey?: string;
+  geminiApiKeys?: ApiKeyRecord[]; // Supporting a pool of keys
 }
 
 export interface CartItem {

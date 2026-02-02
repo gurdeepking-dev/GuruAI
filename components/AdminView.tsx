@@ -1,11 +1,9 @@
 
-// Added React to imports to fix 'Cannot find namespace React' errors
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleTemplate, AdminSettings } from '../types';
+import { StyleTemplate, AdminSettings, ApiKeyRecord } from '../types';
 import { storageService } from '../services/storage';
 import { logger } from '../services/logger';
 
-// Fixed React.FC usage by ensuring React is in scope
 const AdminView: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(storageService.isAdminLoggedIn());
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -13,13 +11,13 @@ const AdminView: React.FC = () => {
   
   const [styles, setStyles] = useState<StyleTemplate[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
-  // Removed 'keys' from activeTab options to comply with GenAI guidelines
-  const [activeTab, setActiveTab] = useState<'styles' | 'payment' | 'security'>('styles');
+  const [activeTab, setActiveTab] = useState<'styles' | 'keys' | 'payment' | 'security'>('styles');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const [styleForm, setStyleForm] = useState({ id: '', name: '', prompt: '', description: '', image: '' });
+  const [keyForm, setKeyForm] = useState({ label: '', key: '' });
   const [securityForm, setSecurityForm] = useState({ newUsername: '', currentPassword: '', newPassword: '' });
   const importInputRef = useRef<HTMLInputElement>(null);
 
@@ -32,7 +30,6 @@ const AdminView: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // Removed API keys fetching to align with exclusive process.env.API_KEY usage
       const [s, settings] = await Promise.all([
         storageService.getStyles(),
         storageService.getAdminSettings()
@@ -59,7 +56,6 @@ const AdminView: React.FC = () => {
     showNotification('Backup Downloaded');
   };
 
-  // Fixed React.ChangeEvent type usage
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -77,7 +73,6 @@ const AdminView: React.FC = () => {
     }
   };
 
-  // Fixed React.FormEvent type usage
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const settings = await storageService.getAdminSettings();
@@ -95,7 +90,6 @@ const AdminView: React.FC = () => {
     storageService.setAdminLoggedIn(false);
   };
 
-  // Fixed React.FormEvent type usage
   const handleSaveStyle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!styleForm.name || !styleForm.prompt || !styleForm.image) {
@@ -118,41 +112,63 @@ const AdminView: React.FC = () => {
       setStyleForm({ id: '', name: '', prompt: '', description: '', image: '' });
       showNotification('Style Template Saved');
     } catch (err) {
-      alert("Failed to save style. Check console for details.");
+      alert("Failed to save style.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDeleteStyle = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this style? This cannot be undone.')) return;
-    
-    logger.info('Admin', 'User initiated style deletion', { styleId: id });
+    if (!confirm('Are you sure you want to delete this style?')) return;
     setIsDeleting(id);
-    
     try {
       await storageService.deleteStyle(id);
-      
-      // Update local state immediately for better UX
-      setStyles(prev => {
-        const filtered = prev.filter(s => s.id !== id);
-        logger.debug('Admin', 'Local styles state updated after deletion', { 
-          remainingCount: filtered.length 
-        });
-        return filtered;
-      });
-      
-      showNotification('Style Deleted Successfully');
-      logger.info('Admin', 'Style deletion completed successfully', { styleId: id });
+      setStyles(prev => prev.filter(s => s.id !== id));
+      showNotification('Style Deleted');
     } catch (err: any) {
-      logger.error('Admin', 'UI-Level Style Deletion Failure', {
-        id,
-        error: err,
-        message: err.message
-      });
-      alert(`Failed to delete style. Database error: ${err.message || 'Unknown Error'}. Please check RLS policies.`);
+      alert(`Delete failed: ${err.message}`);
     } finally {
       setIsDeleting(null);
+    }
+  };
+
+  const handleAddKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!keyForm.key || !keyForm.label || !adminSettings) return;
+
+    const newKey: ApiKeyRecord = {
+      id: Date.now().toString(),
+      key: keyForm.key,
+      label: keyForm.label,
+      status: 'active',
+      addedAt: Date.now()
+    };
+
+    const updatedSettings = {
+      ...adminSettings,
+      geminiApiKeys: [...(adminSettings.geminiApiKeys || []), newKey]
+    };
+
+    try {
+      await storageService.saveAdminSettings(updatedSettings);
+      setAdminSettings(updatedSettings);
+      setKeyForm({ key: '', label: '' });
+      showNotification('API Key Added to Pool');
+    } catch (err) {
+      alert("Failed to add key.");
+    }
+  };
+
+  const handleDeleteKey = async (id: string) => {
+    if (!adminSettings || !confirm('Remove this API key?')) return;
+    const updatedKeys = adminSettings.geminiApiKeys?.filter(k => k.id !== id) || [];
+    const updatedSettings = { ...adminSettings, geminiApiKeys: updatedKeys };
+    try {
+      await storageService.saveAdminSettings(updatedSettings);
+      setAdminSettings(updatedSettings);
+      showNotification('API Key Removed');
+    } catch (err) {
+      alert("Failed to remove key.");
     }
   };
 
@@ -161,40 +177,35 @@ const AdminView: React.FC = () => {
     setTimeout(() => setSaveStatus(null), 3000);
   };
 
-  // Fixed React.FormEvent type usage
   const handleSavePaymentConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adminSettings) {
       try {
         await storageService.saveAdminSettings(adminSettings);
-        showNotification('Settings saved to database');
+        showNotification('Payment Settings Saved');
       } catch (err) {
         alert("Failed to save settings.");
       }
     }
   };
 
-  // Fixed React.FormEvent type usage
   const handleUpdateSecurity = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminSettings) return;
-
     if (securityForm.currentPassword !== adminSettings.passwordHash) {
       alert("Current password incorrect");
       return;
     }
-
     const updatedSettings: AdminSettings = {
       ...adminSettings,
       username: securityForm.newUsername || adminSettings.username,
       passwordHash: securityForm.newPassword || adminSettings.passwordHash
     };
-
     try {
       await storageService.saveAdminSettings(updatedSettings);
       setAdminSettings(updatedSettings);
       setSecurityForm(prev => ({ ...prev, currentPassword: '', newPassword: '' }));
-      showNotification('Security Settings Updated');
+      showNotification('Security Updated');
     } catch (err) {
       alert("Failed to update credentials.");
     }
@@ -232,7 +243,7 @@ const AdminView: React.FC = () => {
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Database Live</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Database Connected</span>
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin Mode</span>
         </div>
@@ -240,13 +251,13 @@ const AdminView: React.FC = () => {
       </div>
 
       <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-fit mx-auto overflow-x-auto">
-        {['styles', 'payment', 'security'].map((t) => (
+        {['styles', 'keys', 'payment', 'security'].map((t) => (
           <button 
             key={t}
             onClick={() => setActiveTab(t as any)}
             className={`px-8 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === t ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
           >
-            {t}
+            {t === 'keys' ? 'API Keys Pool' : t}
           </button>
         ))}
       </div>
@@ -289,17 +300,10 @@ const AdminView: React.FC = () => {
                   <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">Upload Sample Image</span>
                 )}
               </label>
-              <button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all disabled:opacity-50"
-              >
-                {isLoading ? 'Uploading...' : 'Save Style Template'}
-              </button>
-
+              <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all">Save Style</button>
               <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-50">
-                <button type="button" onClick={handleExport} className="py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200">Export Backup</button>
-                <button type="button" onClick={() => importInputRef.current?.click()} className="py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200">Import Backup</button>
+                <button type="button" onClick={handleExport} className="py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200">Export</button>
+                <button type="button" onClick={() => importInputRef.current?.click()} className="py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200">Import</button>
                 <input type="file" ref={importInputRef} onChange={handleImport} accept=".json" className="hidden" />
               </div>
             </form>
@@ -312,13 +316,7 @@ const AdminView: React.FC = () => {
                   <h4 className="font-bold text-slate-800 truncate">{s.name}</h4>
                   <div className="flex gap-4 mt-3">
                     <button onClick={() => setStyleForm({ id: s.id, name: s.name, prompt: s.prompt, description: s.description, image: s.imageUrl })} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Edit</button>
-                    <button 
-                      onClick={() => handleDeleteStyle(s.id)} 
-                      disabled={isDeleting === s.id}
-                      className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isDeleting === s.id ? 'text-slate-300' : 'text-red-400 hover:text-red-600'}`}
-                    >
-                      {isDeleting === s.id ? 'Deleting...' : 'Delete'}
-                    </button>
+                    <button onClick={() => handleDeleteStyle(s.id)} className="text-[10px] font-black text-red-400 uppercase tracking-widest">Delete</button>
                   </div>
                 </div>
               </div>
@@ -327,15 +325,67 @@ const AdminView: React.FC = () => {
         </div>
       )}
 
+      {activeTab === 'keys' && adminSettings && (
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
+            <h3 className="text-2xl font-black text-slate-800 tracking-tighter">Add API Key to Pool</h3>
+            <form onSubmit={handleAddKey} className="grid sm:grid-cols-12 gap-4 items-end">
+              <div className="sm:col-span-4 space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Key Label</label>
+                <input 
+                  type="text" value={keyForm.label}
+                  onChange={e => setKeyForm({...keyForm, label: e.target.value})}
+                  placeholder="e.g. Project A Key"
+                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-medium outline-none focus:ring-2 focus:ring-indigo-500" 
+                />
+              </div>
+              <div className="sm:col-span-6 space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">API Key</label>
+                <input 
+                  type="password" value={keyForm.key}
+                  onChange={e => setKeyForm({...keyForm, key: e.target.value})}
+                  placeholder="AIzaSy..."
+                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500" 
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all">Add</button>
+              </div>
+            </form>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {(adminSettings.geminiApiKeys || []).map(k => (
+              <div key={k.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-slate-800">{k.label}</h4>
+                    <p className="text-[10px] text-slate-400 font-mono">••••••••{k.key.slice(-4)}</p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${k.status === 'active' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                    {k.status}
+                  </span>
+                </div>
+                <button 
+                  onClick={() => handleDeleteKey(k.id)}
+                  className="w-full py-2 text-[10px] font-black text-red-400 hover:text-red-600 uppercase tracking-widest bg-red-50 rounded-xl transition-colors"
+                >
+                  Remove from Pool
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'payment' && adminSettings && (
         <div className="max-w-2xl mx-auto bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
-          <h3 className="text-2xl font-black text-slate-800 tracking-tighter">Razorpay Gateway</h3>
+          <h3 className="text-2xl font-black text-slate-800 tracking-tighter">Razorpay Configuration</h3>
           <form onSubmit={handleSavePaymentConfig} className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Key ID</label>
               <input 
-                type="text" placeholder="rzp_live_..."
-                value={adminSettings.payment.keyId}
+                type="text" value={adminSettings.payment.keyId}
                 onChange={e => setAdminSettings({...adminSettings, payment: {...adminSettings.payment, keyId: e.target.value}})}
                 className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500" 
               />
@@ -350,10 +400,9 @@ const AdminView: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Price per Style</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Price</label>
                 <input 
-                  type="number" step="0.01"
-                  value={adminSettings.payment.photoPrice}
+                  type="number" step="0.01" value={adminSettings.payment.photoPrice}
                   onChange={e => setAdminSettings({...adminSettings, payment: {...adminSettings.payment, photoPrice: parseFloat(e.target.value)}})}
                   className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-black" 
                 />
@@ -369,7 +418,7 @@ const AdminView: React.FC = () => {
           <h3 className="text-2xl font-black text-slate-800 tracking-tighter">Admin Credentials</h3>
           <form onSubmit={handleUpdateSecurity} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Current Username</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label>
               <input 
                 type="text" value={securityForm.newUsername}
                 onChange={e => setSecurityForm({...securityForm, newUsername: e.target.value})}
@@ -377,7 +426,7 @@ const AdminView: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Confirm Identity (Password)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Current Password</label>
               <input 
                 type="password" required
                 value={securityForm.currentPassword}
@@ -386,7 +435,7 @@ const AdminView: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Change Password</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label>
               <input 
                 type="password" 
                 placeholder="Leave blank to keep same"
