@@ -1,4 +1,4 @@
-
+// Added React to imports to fix namespace errors
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleTemplate, CartItem, User, TransactionRecord } from '../types';
 import { storageService } from '../services/storage';
@@ -30,11 +30,11 @@ interface GenerationState {
   }
 }
 
+// Fixed namespace error by importing React and using React.FC
 const UserView: React.FC<UserViewProps> = ({ 
   cart, user, addToCart, showCheckout, setShowCheckout, removeFromCart, setCart
 }) => {
   const [styles, setStyles] = useState<StyleTemplate[]>([]);
-  // Use in-memory Base64/Object URLs. DO NOT UPLOAD TO CLOUD.
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
   const [genStates, setGenStates] = useState<GenerationState>({});
   const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -45,9 +45,7 @@ const UserView: React.FC<UserViewProps> = ({
     logger.info('View', 'UserView mounted');
     loadContent();
     
-    // Cleanup function: revoke any object URLs if used
     return () => {
-      logger.info('View', 'UserView unmounting, clearing session data');
       if (userPhoto && userPhoto.startsWith('blob:')) {
         URL.revokeObjectURL(userPhoto);
       }
@@ -60,6 +58,7 @@ const UserView: React.FC<UserViewProps> = ({
         storageService.getStyles(),
         storageService.getAdminSettings()
       ]);
+      
       setStyles(loadedStyles);
       setSettings(adminSettings);
       
@@ -74,17 +73,14 @@ const UserView: React.FC<UserViewProps> = ({
     }
   };
 
+  // Fixed namespace error by importing React and using React.ChangeEvent
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      logger.info('Session', `User uploaded photo: ${file.name} (${file.size} bytes)`);
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        // Keep strictly in state.
         setUserPhoto(base64);
-        
-        // Reset results when new photo is uploaded
         setGenStates(prev => {
           const newState = { ...prev };
           Object.keys(newState).forEach(id => {
@@ -99,12 +95,10 @@ const UserView: React.FC<UserViewProps> = ({
 
   const handleGenerate = async (style: StyleTemplate) => {
     if (!userPhoto) {
-      logger.warn('Session', 'Generation attempted without photo');
       uploadInputRef.current?.click();
       return;
     }
 
-    logger.info('Session', `Starting style generation: ${style.name}`);
     setGenStates(prev => ({
       ...prev,
       [style.id]: { ...prev[style.id], isLoading: true, error: null }
@@ -114,14 +108,11 @@ const UserView: React.FC<UserViewProps> = ({
       const state = genStates[style.id];
       const result = await geminiService.generateStyle(userPhoto, style.prompt, state.refinement);
       
-      // Keep results in local state only.
       setGenStates(prev => ({
         ...prev,
         [style.id]: { ...prev[style.id], isLoading: false, result }
       }));
-      logger.info('Session', `Generation complete for: ${style.name}`);
     } catch (err: any) {
-      logger.error('Session', `Generation failed for: ${style.name}`, err);
       setGenStates(prev => ({
         ...prev,
         [style.id]: { ...prev[style.id], isLoading: false, error: err.message }
@@ -131,7 +122,6 @@ const UserView: React.FC<UserViewProps> = ({
 
   const handleClaimFree = (styleId: string) => {
     if (freePhotoClaimed) return;
-    logger.info('Session', 'User claiming free photo', { styleId });
     usageService.markFreePhotoAsUsed();
     setFreePhotoClaimed(true);
     setGenStates(prev => ({
@@ -157,13 +147,11 @@ const UserView: React.FC<UserViewProps> = ({
       price: settings?.payment.photoPrice || 5.00,
     };
     addToCart(newItem);
-    logger.debug('Cart', 'Item added', { styleId });
   };
 
   const handleDownload = (styleId: string) => {
     const state = genStates[styleId];
     if (!state.result) return;
-    logger.info('Session', 'Downloading high-res image', { styleId });
     const link = document.createElement('a');
     link.href = state.result;
     link.download = `styleswap-${styleId}.png`;
@@ -173,9 +161,6 @@ const UserView: React.FC<UserViewProps> = ({
   };
 
   const handlePaymentComplete = async (paymentId: string, paidItemIds: string[]) => {
-    logger.info('Payment', 'Payment process finalizing', { paymentId, paidItemIds });
-    
-    // Save transaction to DB for records
     const tx: TransactionRecord = {
       razorpay_payment_id: paymentId,
       user_email: user?.email || 'guest@anonymous.com',
@@ -195,7 +180,6 @@ const UserView: React.FC<UserViewProps> = ({
 
     setCart([]);
     setShowCheckout(false);
-    logger.info('Payment', 'Payment successfully processed and items unlocked');
     alert("Payment Verified! Your high-res photos are unlocked.");
   };
 
@@ -210,7 +194,6 @@ const UserView: React.FC<UserViewProps> = ({
 
   return (
     <div className="space-y-16 pb-24">
-      {/* HERO SECTION */}
       <section className="relative overflow-hidden bg-white rounded-[4rem] p-12 shadow-2xl border border-slate-100">
         <div className="max-w-4xl mx-auto flex flex-col items-center text-center gap-10">
           <div className="relative cursor-pointer group" onClick={() => uploadInputRef.current?.click()}>
@@ -236,7 +219,6 @@ const UserView: React.FC<UserViewProps> = ({
         </div>
       </section>
 
-      {/* STYLE GALLERY */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
         {styles.map((s) => {
           const state = genStates[s.id] || { isLoading: false, result: null, error: null, refinement: '', isHighRes: false };
@@ -250,12 +232,18 @@ const UserView: React.FC<UserViewProps> = ({
                   </div>
                 ) : state.result ? (
                   <div className="w-full h-full relative">
-                    <img src={state.result} className="w-full h-full object-cover animate-in fade-in duration-500" alt={s.name} />
+                    <img src={state.result} className="w-full h-full object-cover animate-in fade-in duration-500" alt={s.name} decoding="async" />
                     {!state.isHighRes && <Watermark text="Session Limited" />}
                   </div>
                 ) : (
                   <div className="w-full h-full cursor-pointer relative group" onClick={() => handleGenerate(s)}>
-                    <img src={s.imageUrl} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={s.name} />
+                    <img 
+                      src={s.imageUrl} 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                      alt={s.name} 
+                      loading="lazy"
+                      decoding="async"
+                    />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <span className="bg-white px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest">Apply Style</span>
                     </div>

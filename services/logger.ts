@@ -1,15 +1,10 @@
 
-/**
- * StyleSwap AI Logging Service
- * Provides isolated, domain-specific logging for debugging and audit trails.
- */
-
 type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
 
 class Logger {
   private format(level: LogLevel, domain: string, message: string, data?: any) {
     const timestamp = new Date().toISOString();
-    const dataStr = data ? ` | Data: ${JSON.stringify(data, null, 2)}` : '';
+    const dataStr = data ? ` | Data: ${JSON.stringify(data)}` : '';
     return `[${timestamp}] [${level}] [${domain}] ${message}${dataStr}`;
   }
 

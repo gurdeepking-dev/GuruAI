@@ -1,50 +1,52 @@
 
-import { supabase, isCloudEnabled } from './supabase';
+import { supabase } from './supabase';
 import { logger } from './logger';
 
 export const imageStorage = {
-  /**
-   * Uploads permanent assets (like Style Templates) to Cloud Storage.
-   * User portraits and results should NEVER use this function.
-   */
-  uploadTemplateImage: async (base64: string, fileName: string): Promise<string> => {
-    logger.info('Storage', `Attempting template upload: ${fileName}`);
-    
-    if (!isCloudEnabled || !supabase) {
-      logger.warn('Storage', 'Cloud disabled, falling back to base64 for template');
-      return base64;
-    }
-
+  async uploadTemplateImage(base64: string): Promise<string> {
     try {
-      const parts = base64.split(',');
-      if (parts.length < 2) throw new Error("Invalid base64 format");
-      
-      const byteString = atob(parts[1]);
-      const mimeString = parts[0].split(':')[1].split(';')[0];
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
+      // 1. If it's already a URL (external or cloud), return it directly
+      if (!base64 || !base64.startsWith('data:')) {
+        return base64;
       }
-      const blob = new Blob([ab], { type: mimeString });
 
+      // 2. Extract basic info
+      const mimeMatch = base64.match(/^data:([^;]+);base64,/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+      const fileExt = mimeType.split('/')[1] || 'png';
+      
+      // 3. Generate a clean unique filename
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+      const filePath = `styles/${fileName}`;
+
+      // 4. Reliable conversion to Blob
+      const response = await fetch(base64);
+      const blob = await response.blob();
+
+      // 5. Attempt upload to 'templates' bucket
       const { data, error } = await supabase.storage
-        .from('style_templates')
-        .upload(`public/${fileName}`, blob, { upsert: true });
+        .from('templates')
+        .upload(filePath, blob, {
+          contentType: mimeType,
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (error) {
-        logger.error('Storage', 'Supabase upload error', error);
+        logger.error('Storage', 'Supabase Upload Error', { error });
         throw error;
       }
 
+      // 6. Return the permanent public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('style_templates')
-        .getPublicUrl(data.path);
+        .from('templates')
+        .getPublicUrl(filePath);
 
-      logger.info('Storage', 'Template upload successful', { publicUrl });
+      logger.info('Storage', 'File successfully moved to Supabase cloud', { publicUrl });
       return publicUrl;
     } catch (err: any) {
-      logger.error('Storage', 'Template upload failed', { error: err.message });
+      // Graceful fallback to local base64 so the app still works even if cloud fails
+      logger.error('Storage', 'Storage operation failed. Using local fallback.', err.message);
       return base64;
     }
   }

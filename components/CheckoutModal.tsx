@@ -23,55 +23,66 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
 
   const handlePay = async () => {
     if (!email) {
-      setError("Please enter your email for the high-res link.");
+      setError("Please enter your email for delivery.");
       return;
     }
 
     logger.info('Payment', 'Initiating Razorpay payment', { email, total, items: cart.length });
 
-    const settings = await storageService.getAdminSettings();
-    const keyId = settings.payment.keyId;
-
-    if (!keyId) {
-      logger.error('Payment', 'Razorpay KeyID missing in settings');
-      setError("Payment system offline (No Key). Contact Support.");
-      return;
-    }
-
-    setIsProcessing(true);
-    setError(null);
-
     try {
+      const settings = await storageService.getAdminSettings();
+      const keyId = settings?.payment?.keyId || process.env.RAZORPAY_KEY_ID;
+
+      if (!keyId) {
+        logger.error('Payment', 'Razorpay KeyID missing');
+        setError("Payment system configuration error (Missing Key ID).");
+        return;
+      }
+
+      setIsProcessing(true);
+      setError(null);
+
+      if (!(window as any).Razorpay) {
+        throw new Error("Razorpay script not loaded. Check your internet connection.");
+      }
+
       const options = {
         key: keyId,
-        amount: Math.round(total * 100), // paise
-        currency: settings.payment.currency,
-        name: "StyleSwap AI",
-        description: `High-Res Unlocks (${cart.length} items)`,
+        amount: Math.round(total * 100),
+        currency: settings?.payment?.currency || "INR",
+        name: "StyleSwap AI Studio",
+        description: `Unlock ${cart.length} High-Res Styles`,
         handler: function (response: any) {
-          logger.info('Payment', 'Razorpay Success Callback', { paymentId: response.razorpay_payment_id });
-          onComplete(response.razorpay_payment_id, cart.map(i => i.id));
+          logger.info('Payment', 'Success Callback Received', { paymentId: response.razorpay_payment_id });
+          try {
+            onComplete(response.razorpay_payment_id, cart.map(i => i.id));
+          } catch (callbackErr: any) {
+             logger.error('Payment', 'Callback handler crashed', callbackErr);
+             alert("Payment successful but photo unlock failed. Please contact support.");
+          }
         },
         prefill: { email },
         theme: { color: "#4f46e5" },
         modal: { 
           ondismiss: () => {
-            logger.info('Payment', 'User closed Razorpay modal');
+            logger.info('Payment', 'User cancelled');
             setIsProcessing(false);
           } 
         }
       };
 
       const rzp = new (window as any).Razorpay(options);
+      
       rzp.on('payment.failed', function (response: any) {
-        logger.error('Payment', 'Razorpay Failure', response.error);
-        setError(`Payment failed: ${response.error.description}`);
+        logger.error('Payment', 'Payment process failed', response.error);
+        setError(`Payment Failed: ${response.error.description || 'Unknown error'}`);
         setIsProcessing(false);
       });
+
       rzp.open();
     } catch (err: any) {
-      logger.error('Payment', 'Checkout initialization failed', { error: err.message });
-      setError("Payment connection failed.");
+      logger.error('Payment', 'Initialization error', err);
+      setError(`Critical Error: ${err.message}`);
       setIsProcessing(false);
     }
   };
@@ -82,10 +93,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
       <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-10 space-y-8 animate-in zoom-in-95 duration-300">
         <div className="flex justify-between items-start">
           <div className="space-y-1">
-            <h4 className="text-3xl font-black text-slate-900 tracking-tighter">Unlock Art</h4>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Digital High-Res Copies</p>
+            <h4 className="text-3xl font-black text-slate-900 tracking-tighter">Checkout</h4>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Unlock Digital Masterpieces</p>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-300 hover:text-slate-600 transition-colors">✕</button>
+          <button onClick={onClose} className="p-2 text-slate-300 hover:text-slate-600 transition-colors text-2xl font-bold">×</button>
         </div>
         
         <div className="space-y-3 max-h-48 overflow-y-auto pr-2 scrollbar-hide border-y border-slate-50 py-4">
@@ -106,13 +117,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
               )}
             </div>
           )) : (
-            <p className="text-center py-8 text-slate-400 italic text-sm">Cart is empty</p>
+            <p className="text-center py-8 text-slate-400 italic text-sm">Your cart is empty</p>
           )}
         </div>
 
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email for Delivery</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Delivery Email</label>
             <input 
               type="email" value={email} onChange={e => setEmail(e.target.value)}
               placeholder="you@example.com"
@@ -131,14 +142,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
           {isProcessing ? (
              <>
                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-               Processing...
+               Contacting Razorpay...
              </>
           ) : `Pay ${storageService.getCurrencySymbol()} ${total.toFixed(2)}`}
         </button>
         
-        <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-          Secure Payment via Official Razorpay Gateway
-        </p>
+        <div className="flex items-center justify-center gap-2">
+           <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 4.946-2.597 9.181-6.5 11.493a1 1 0 01-1 0c-3.903-2.313-6.5-6.547-6.5-11.493 0-.68.056-1.35.166-2.001zm6.586 3.03a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L10 10.414l-1.293 1.293a1 1 0 01-1.414-1.414l2-2z" clipRule="evenodd" /></svg>
+           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            Secure Payment Gateway Active
+          </p>
+        </div>
       </div>
     </div>
   );

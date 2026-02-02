@@ -1,145 +1,184 @@
 
-import { StyleTemplate, ApiKeyRecord, AdminSettings, TransactionRecord } from '../types';
-import { supabase, isCloudEnabled } from './supabase';
+import { StyleTemplate, AdminSettings, TransactionRecord } from '../types';
 import { logger } from './logger';
+import { supabase } from './supabase';
+import { imageStorage } from './imageStorage';
 
-const ADMIN_KEY = 'styleswap_admin_settings';
 const SESSION_KEY = 'styleswap_admin_session';
+const INITIALIZED_KEY = 'styleswap_db_initialized';
+const STYLES_CACHE_KEY = 'styleswap_styles_cache_v1';
 
-const DEFAULT_STYLES: StyleTemplate[] = [
-  {
-    id: '1',
-    name: 'Royal Indian Wedding',
-    imageUrl: 'https://images.unsplash.com/photo-1610034603010-0a3733e07d9b?w=800&q=80',
-    prompt: 'Transform this person into a magnificent Indian bride/groom wearing traditional royal wedding attire. Use intricate jewelry, rich silk embroidery, and a grand palace background with warm golden lighting.',
-    description: 'Majestic traditional elegance with rich cultural details.'
-  }
+export const DEFAULT_STYLES: StyleTemplate[] = [
+  { id: '1', name: 'Royal Indian Wedding', imageUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=500&q=75', prompt: 'A magnificent Indian wedding portrait. Traditional royal attire with intricate gold embroidery, heavy jewelry, and a palace background. Warm cinematic lighting.', description: 'Traditional elegance.' },
+  { id: '2', name: 'Cyberpunk Neon', imageUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=500&q=75', prompt: 'Cyberpunk 2077 style. Neon glowing accents, futuristic techwear, rainy night city background with teal and pink lighting. High-tech aesthetic.', description: 'Futuristic sci-fi.' },
+  { id: '3', name: 'Pixar Animation', imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&q=75', prompt: '3D Disney Pixar animation style. Big expressive eyes, smooth skin textures, stylized features, vibrant and soft cinematic lighting.', description: '3D Animated character.' },
+  { id: '4', name: 'Greek Marble Statue', imageUrl: 'https://images.unsplash.com/photo-1549887534-1541e9326642?w=500&q=75', prompt: 'Classic white marble Greek sculpture. Intricate carved details, smooth stone texture, museum gallery lighting, timeless museum aesthetic.', description: 'Ancient masterpiece.' },
+  { id: '5', name: 'Detailed Pencil Sketch', imageUrl: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=500&q=75', prompt: 'Hyper-realistic pencil charcoal sketch on textured paper. Fine lines, artistic shading, graphite smudges, hand-drawn look.', description: 'Artistic hand-drawing.' },
+  { id: '6', name: 'Van Gogh Oil Painting', imageUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=500&q=75', prompt: 'Impressionist oil painting in the style of Vincent van Gogh. Thick visible brushstrokes, swirling colors, Starry Night color palette.', description: 'Classic impressionism.' },
+  { id: '7', name: '1950s Hollywood Noir', imageUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500&q=75', prompt: '1950s Black and white film noir cinematography. High contrast, dramatic shadows, moody atmosphere, sharp focus, vintage cinematic look.', description: 'Vintage movie star.' },
+  { id: '8', name: 'GTA Loading Screen', imageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=500&q=75', prompt: 'Stylized vector art loading screen style. Thick black outlines, high contrast saturated colors, digital illustration aesthetic.', description: 'Comic-book stylized.' },
+  { id: '9', name: 'Viking Chieftain', imageUrl: 'https://images.unsplash.com/photo-1519074063912-ad2dbf50b16d?w=500&q=75', prompt: 'Rough Viking era warrior. Fur clothing, tribal face paint, snowy dark forest background, cinematic cold lighting, epic historical look.', description: 'Norse warrior.' },
+  { id: '10', name: 'Studio Ghibli Anime', imageUrl: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=500&q=75', prompt: 'Hand-painted Studio Ghibli anime style. Soft watercolor textures, whimsical atmosphere, lush green background, gentle lighting.', description: 'Japanese animation.' }
 ];
 
-const DEFAULT_ADMIN: AdminSettings = {
+export const DEFAULT_ADMIN: AdminSettings = {
   username: 'admin',
   passwordHash: 'admin123',
   payment: {
     gateway: 'Razorpay',
     keyId: process.env.RAZORPAY_KEY_ID || '',
     keySecret: process.env.RAZORPAY_KEY_SECRET || '',
-    currency: 'INR',
+    currency: process.env.DEFAULT_CURRENCY || 'INR',
     enabled: true,
-    photoPrice: 5.00
+    photoPrice: parseFloat(process.env.PHOTO_PRICE || '8')
   }
 };
 
 export const storageService = {
-  getStyles: async (): Promise<StyleTemplate[]> => {
-    logger.debug('Data', 'Fetching style templates');
-    if (isCloudEnabled && supabase) {
-      const { data, error } = await supabase.from('style_templates').select('*').order('created_at', { ascending: true });
-      if (!error && data) {
-        logger.info('Data', `Loaded ${data.length} styles from Cloud`);
-        return data;
+  async getStyles(forceRefresh = false): Promise<StyleTemplate[]> {
+    // Cache-First strategy: Return cached data immediately if available
+    const cached = localStorage.getItem(STYLES_CACHE_KEY);
+    if (cached && !forceRefresh) {
+      logger.debug('Storage', 'Returning styles from cache');
+      // Still fetch in background to update cache
+      this.fetchStylesFromDB().then(freshData => {
+        if (freshData.length > 0) {
+          localStorage.setItem(STYLES_CACHE_KEY, JSON.stringify(freshData));
+        }
+      });
+      return JSON.parse(cached);
+    }
+
+    return this.fetchStylesFromDB();
+  },
+
+  async fetchStylesFromDB(): Promise<StyleTemplate[]> {
+    try {
+      const { data, error } = await supabase.from('styles').select('*').order('created_at', { ascending: true });
+      if (error) throw error;
+      
+      // Initial Sync check
+      if ((!data || data.length === 0) && !localStorage.getItem(INITIALIZED_KEY)) {
+        logger.info('Storage', 'Initial sync triggered: Parallel uploading defaults...');
+        // Set key immediately to prevent race conditions
+        localStorage.setItem(INITIALIZED_KEY, 'true');
+        
+        // Use Promise.all for parallel uploads (Much faster than sequential loop)
+        Promise.all(DEFAULT_STYLES.map(s => this.saveStyle(s)))
+          .then(() => logger.info('Storage', 'Background parallel sync completed'))
+          .catch(e => logger.error('Storage', 'Background sync failed', e));
+
+        return DEFAULT_STYLES;
       }
-      logger.error('Data', 'Cloud styles fetch failed', error);
-    }
-    const localData = localStorage.getItem('styleswap_templates');
-    logger.info('Data', 'Loaded styles from LocalStorage fallback');
-    return localData ? JSON.parse(localData) : DEFAULT_STYLES;
-  },
 
-  saveStyle: async (style: StyleTemplate) => {
-    logger.info('Data', `Saving style: ${style.name}`);
-    if (isCloudEnabled && supabase) {
-      const { error } = await supabase.from('style_templates').upsert(style);
-      if (!error) {
-        logger.info('Data', 'Style synced to Cloud');
-        return;
+      const styles = data || [];
+      if (styles.length > 0) {
+        localStorage.setItem(STYLES_CACHE_KEY, JSON.stringify(styles));
       }
-      logger.error('Data', 'Cloud style save failed', error);
-    }
-    const styles = await storageService.getStyles();
-    const updated = styles.some(s => s.id === style.id) 
-      ? styles.map(s => s.id === style.id ? style : s)
-      : [...styles, style];
-    localStorage.setItem('styleswap_templates', JSON.stringify(updated));
-  },
-
-  deleteStyle: async (id: string) => {
-    logger.info('Data', `Deleting style: ${id}`);
-    if (isCloudEnabled && supabase) {
-      const { error } = await supabase.from('style_templates').delete().eq('id', id);
-      if (error) logger.error('Data', 'Cloud style delete failed', error);
-    }
-    const styles = await storageService.getStyles();
-    localStorage.setItem('styleswap_templates', JSON.stringify(styles.filter(s => s.id !== id)));
-  },
-
-  getApiKeys: async (): Promise<ApiKeyRecord[]> => {
-    if (isCloudEnabled && supabase) {
-      const { data, error } = await supabase.from('api_key_pool').select('*');
-      if (!error && data) return data;
-    }
-    const data = localStorage.getItem('styleswap_api_keys');
-    return data ? JSON.parse(data) : [];
-  },
-
-  saveApiKey: async (key: ApiKeyRecord) => {
-    logger.info('Data', 'Adding new API key to pool');
-    if (isCloudEnabled && supabase) {
-      await supabase.from('api_key_pool').upsert(key);
-    }
-    const keys = await storageService.getApiKeys();
-    localStorage.setItem('styleswap_api_keys', JSON.stringify([...keys, key]));
-  },
-
-  deleteApiKey: async (id: string) => {
-    if (isCloudEnabled && supabase) {
-      await supabase.from('api_key_pool').delete().eq('id', id);
-    }
-    const keys = await storageService.getApiKeys();
-    localStorage.setItem('styleswap_api_keys', JSON.stringify(keys.filter(k => k.id !== id)));
-  },
-
-  getAdminSettings: async (): Promise<AdminSettings> => {
-    if (isCloudEnabled && supabase) {
-      const { data, error } = await supabase.from('admin_settings').select('settings').single();
-      if (!error && data) return data.settings;
-    }
-    const data = localStorage.getItem(ADMIN_KEY);
-    return data ? JSON.parse(data) : DEFAULT_ADMIN;
-  },
-
-  saveAdminSettings: async (settings: AdminSettings) => {
-    logger.info('Data', 'Updating global admin settings');
-    if (isCloudEnabled && supabase) {
-      await supabase.from('admin_settings').upsert({ id: 'current', settings });
-    }
-    localStorage.setItem(ADMIN_KEY, JSON.stringify(settings));
-  },
-
-  saveTransaction: async (tx: TransactionRecord) => {
-    logger.info('Payment', 'Logging transaction', { id: tx.razorpay_payment_id });
-    if (isCloudEnabled && supabase) {
-      const { error } = await supabase.from('transactions').insert(tx);
-      if (error) logger.error('Payment', 'Cloud transaction log failed', error);
-      else logger.info('Payment', 'Transaction synced to Cloud');
+      return styles;
+    } catch (err) {
+      logger.error('Storage', 'Supabase Styles Fetch Failed', err);
+      return DEFAULT_STYLES;
     }
   },
 
-  isAdminLoggedIn: (): boolean => {
+  async saveStyle(style: StyleTemplate): Promise<void> {
+    const finalImageUrl = await imageStorage.uploadTemplateImage(style.imageUrl);
+    const { error } = await supabase.from('styles').upsert({
+      ...style,
+      imageUrl: finalImageUrl,
+      created_at: style.created_at || new Date().toISOString()
+    });
+    if (error) throw error;
+    // Clear cache to force refresh on next load
+    localStorage.removeItem(STYLES_CACHE_KEY);
+  },
+
+  async deleteStyle(id: string): Promise<void> {
+    logger.debug('Storage', 'Attempting to delete style row', { id });
+    
+    try {
+      const response = await supabase
+        .from('styles')
+        .delete()
+        .eq('id', id);
+
+      if (response.error) {
+        throw response.error;
+      }
+      
+      localStorage.removeItem(STYLES_CACHE_KEY);
+      logger.info('Storage', 'Style deleted and cache invalidated', { id });
+
+    } catch (err: any) {
+      logger.error('Storage', 'Critical failure during deleteStyle service call', err);
+      throw err;
+    }
+  },
+
+  async importStyles(stylesJson: string): Promise<void> {
+    const parsed = JSON.parse(stylesJson);
+    if (Array.isArray(parsed)) {
+      await Promise.all(parsed.map(s => this.saveStyle(s)));
+      localStorage.removeItem(STYLES_CACHE_KEY);
+    }
+  },
+
+  async exportStyles(): Promise<string> {
+    const styles = await this.getStyles(true);
+    return JSON.stringify(styles, null, 2);
+  },
+
+  async getAdminSettings(): Promise<AdminSettings> {
+    try {
+      const { data, error } = await supabase.from('settings').select('config').eq('id', 'global').single();
+      
+      if (error || !data) {
+        await this.saveAdminSettings(DEFAULT_ADMIN);
+        return DEFAULT_ADMIN;
+      }
+      
+      return data.config as AdminSettings;
+    } catch (err) {
+      return DEFAULT_ADMIN;
+    }
+  },
+
+  async saveAdminSettings(settings: AdminSettings): Promise<void> {
+    const { error } = await supabase.from('settings').upsert({
+      id: 'global',
+      config: settings
+    });
+    if (error) {
+      logger.error('Storage', 'Failed to save settings to Supabase', error);
+      throw error;
+    }
+    logger.info('Storage', 'Settings saved to Supabase successfully');
+  },
+
+  isAdminLoggedIn(): boolean {
     return localStorage.getItem(SESSION_KEY) === 'true';
   },
 
-  setAdminLoggedIn: (status: boolean) => {
-    if (status) localStorage.setItem(SESSION_KEY, 'true');
+  setAdminLoggedIn(val: boolean): void {
+    if (val) localStorage.setItem(SESSION_KEY, 'true');
     else localStorage.removeItem(SESSION_KEY);
   },
 
-  getCurrencySymbol: (currency: string = 'INR'): string => {
-    switch (currency) {
-      case 'INR': return '₹';
-      case 'USD': return '$';
-      case 'EUR': return '€';
-      case 'GBP': return '£';
-      default: return '₹';
-    }
+  async saveTransaction(tx: TransactionRecord): Promise<void> {
+    const { error } = await supabase.from('transactions').insert({
+      razorpay_payment_id: tx.razorpay_payment_id,
+      user_email: tx.user_email,
+      amount: tx.amount,
+      items: tx.items,
+      status: tx.status,
+      created_at: new Date().toISOString()
+    });
+    if (error) throw error;
+  },
+
+  getCurrencySymbol(currency: string = 'INR'): string {
+    const symbols: Record<string, string> = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹' };
+    return symbols[currency] || '₹';
   }
 };

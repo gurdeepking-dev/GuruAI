@@ -1,12 +1,10 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@^2.45.0';
+import { createClient } from '@supabase/supabase-js';
 
-// These variables must be set in your hosting provider's environment settings
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://ghdwufjkpjuidyfsgkde.supabase.co';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || 'sb_publishable_XPmEBwW1eU5DEhLLlzB1-Q_aH5ktzr-';
 
-export const supabase = (supabaseUrl && supabaseAnonKey) 
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+export const supabase = createClient(supabaseUrl, supabaseKey);
 
-export const isCloudEnabled = !!supabase;
+export const initSupabase = () => !!supabaseUrl && !!supabaseKey;
+export const isCloudEnabled = () => !!supabaseUrl && !!supabaseKey;
