@@ -12,10 +12,12 @@ export const geminiService = {
     const keyPool = settings.geminiApiKeys?.filter(k => k.status === 'active') || [];
     
     // Check for process.env.API_KEY as final fallback if pool is empty
-    if (keyPool.length === 0 && process.env.API_KEY) {
+    const envKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
+    
+    if (keyPool.length === 0 && envKey) {
       keyPool.push({
         id: 'env-fallback',
-        key: process.env.API_KEY,
+        key: envKey,
         label: 'Environment Fallback',
         status: 'active',
         addedAt: Date.now()
@@ -24,7 +26,7 @@ export const geminiService = {
 
     if (keyPool.length === 0) {
       logger.error('AI', 'No active API keys available in the pool');
-      throw new Error("Service currently unavailable. No active API keys found.");
+      throw new Error("Service currently unavailable. Please add an API key in the Admin Panel.");
     }
 
     const finalPrompt = refinement 
@@ -34,12 +36,20 @@ export const geminiService = {
     // Try keys one by one until success
     for (const apiRecord of keyPool) {
       try {
+        if (!apiRecord.key || apiRecord.key.trim() === '') {
+          logger.warn('AI', `Skipping empty key: ${apiRecord.label}`);
+          continue;
+        }
+
         logger.info('AI', `Attempting with key: ${apiRecord.label}`);
         
-        // Temporarily set process.env.API_KEY to satisfy SDK requirements
-        process.env.API_KEY = apiRecord.key;
+        // Ensure process.env.API_KEY is synchronized for libraries that check it globally
+        if (typeof process !== 'undefined' && process.env) {
+          process.env.API_KEY = apiRecord.key;
+        }
         
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        // Pass the key directly to the constructor to avoid "API Key must be set" error
+        const ai = new GoogleGenAI({ apiKey: apiRecord.key });
         
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash-image',
@@ -66,22 +76,22 @@ export const geminiService = {
           }
         }
         
-        throw new Error("No image part in response");
+        throw new Error("The AI returned a response without an image. Please try again.");
 
       } catch (error: any) {
-        const status = error.status || error.message;
-        logger.warn('AI', `Key ${apiRecord.label} failed`, { status });
+        const errorMessage = error.message || 'Unknown error';
+        const errorStatus = error.status || 'N/A';
+        
+        logger.warn('AI', `Key ${apiRecord.label} failed`, { 
+          message: errorMessage,
+          status: errorStatus
+        });
 
-        // If it's a rate limit (429) or invalid key (401), we continue to the next key
-        if (status?.toString().includes('429') || status?.toString().includes('401')) {
-          continue; 
-        }
-
-        // If it's another error, we still try the next key but log the specific error
+        // Continue to the next key in the pool automatically
         continue;
       }
     }
 
-    throw new Error("All available API keys in the pool failed or reached their limit. Please try again later.");
+    throw new Error("All API keys in the pool are currently unavailable or failing. Please check your keys in the Admin Panel.");
   }
 };

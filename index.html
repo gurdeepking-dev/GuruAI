@@ -14,6 +14,15 @@
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); }
     </style>
+    <!-- Shim for process.env to support libraries expecting Node-like environment in the browser -->
+    <script>
+      window.process = {
+        env: {
+          NODE_ENV: 'production',
+          API_KEY: '' 
+        }
+      };
+    </script>
 <script type="importmap">
 {
   "imports": {
