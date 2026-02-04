@@ -1,4 +1,4 @@
-// Added React to imports to fix namespace errors
+
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleTemplate, CartItem, User, TransactionRecord } from '../types';
 import { storageService } from '../services/storage';
@@ -30,7 +30,6 @@ interface GenerationState {
   }
 }
 
-// Fixed namespace error by importing React and using React.FC
 const UserView: React.FC<UserViewProps> = ({ 
   cart, user, addToCart, showCheckout, setShowCheckout, removeFromCart, setCart
 }) => {
@@ -73,7 +72,6 @@ const UserView: React.FC<UserViewProps> = ({
     }
   };
 
-  // Fixed namespace error by importing React and using React.ChangeEvent
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -180,110 +178,172 @@ const UserView: React.FC<UserViewProps> = ({
 
     setCart([]);
     setShowCheckout(false);
-    alert("Payment Verified! Your high-res photos are unlocked.");
+    alert("Payment Verified! Your romantic photo are ready.");
   };
 
   if (!settings) return (
-    <div className="py-20 flex flex-col items-center justify-center gap-4 text-slate-400">
-      <div className="w-8 h-8 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
-      <p className="font-bold">Syncing Artistic Styles...</p>
+    <div className="py-20 flex flex-col items-center justify-center gap-4 text-rose-400">
+      <div className="w-10 h-10 border-4 border-rose-100 border-t-rose-500 rounded-full animate-spin" />
+      <p className="font-bold tracking-tight">Sprinkling Magic Dust...</p>
     </div>
   );
 
   const currencySymbol = storageService.getCurrencySymbol(settings.payment.currency);
 
   return (
-    <div className="space-y-16 pb-24">
-      <section className="relative overflow-hidden bg-white rounded-[4rem] p-12 shadow-2xl border border-slate-100">
-        <div className="max-w-4xl mx-auto flex flex-col items-center text-center gap-10">
-          <div className="relative cursor-pointer group" onClick={() => uploadInputRef.current?.click()}>
-            <div className={`w-40 h-40 rounded-[3rem] flex items-center justify-center transition-all duration-700 shadow-2xl ${userPhoto ? 'bg-white ring-8 ring-indigo-50' : 'bg-indigo-600 animate-pulse hover:scale-105'}`}>
+    <div className="space-y-16 sm:space-y-20 pb-24 max-w-7xl mx-auto px-4">
+      {/* Valentine Hero Section */}
+      <section className="relative overflow-hidden bg-white rounded-[2.5rem] md:rounded-[5rem] p-6 md:p-16 shadow-2xl border border-rose-100 mt-6 text-center">
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-rose-50 rounded-full blur-3xl opacity-60" />
+        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-pink-50 rounded-full blur-3xl opacity-60" />
+        
+        <div className="relative max-w-4xl mx-auto flex flex-col items-center gap-6 sm:gap-10">
+          <div className="relative" onClick={() => uploadInputRef.current?.click()}>
+            <div className={`w-32 h-32 md:w-56 md:h-56 rounded-[3rem] flex items-center justify-center transition-all duration-500 shadow-2xl cursor-pointer hover:scale-[1.03] active:scale-95 ${userPhoto ? 'bg-white ring-6 sm:ring-8 ring-rose-50' : 'bg-gradient-to-br from-rose-500 to-pink-500 shadow-rose-200'}`}>
               {userPhoto ? (
                 <img src={userPhoto} className="w-full h-full object-cover rounded-[3rem]" alt="Target" />
               ) : (
-                <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                <div className="flex flex-col items-center gap-2">
+                  <span className="text-white text-3xl sm:text-4xl">❤️</span>
+                  <span className="text-[9px] sm:text-[10px] font-black text-rose-100 uppercase tracking-widest">Upload Your Photo</span>
+                </div>
               )}
             </div>
+            {userPhoto && (
+              <div className="absolute -bottom-2 -right-2 bg-rose-600 p-2.5 sm:p-3 rounded-2xl shadow-lg border-2 sm:border-4 border-white text-white scale-110">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+              </div>
+            )}
           </div>
+          
           <div className="space-y-4">
-            <h1 className="text-6xl font-black text-slate-900 tracking-tighter">AI Masterpiece Studio</h1>
-            <p className="text-xl text-slate-500 font-medium max-w-lg mx-auto">
-              Professional artistic transformations for only {currencySymbol}{settings.payment.photoPrice}. 
-              All session data is deleted once you leave.
+            <div className="inline-flex items-center gap-2 bg-rose-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-rose-100 mb-1 sm:mb-2">
+              <span className="flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-rose-500 animate-pulse"></span>
+              <span className="text-[8px] sm:text-[10px] font-black text-rose-600 uppercase tracking-widest">Gift a Masterpiece starting at {currencySymbol}0 🌹</span>
+            </div>
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black text-slate-900 tracking-tighter leading-tight serif">
+              Spread the <span className="text-rose-500 italic">Love</span>
+            </h1>
+            <p className="text-xs sm:text-sm md:text-base text-slate-400 font-semibold max-w-lg mx-auto leading-relaxed px-4">
+              Turn your magic moments into art. Claim your first high-res photo for <span className="text-rose-500">FREE</span>. Love it? Unlock more for just <span className="text-slate-900">{currencySymbol}{settings.payment.photoPrice}</span>.
             </p>
           </div>
+
           {!userPhoto && (
-            <button onClick={() => uploadInputRef.current?.click()} className="px-12 py-6 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl hover:bg-black transition-all">Upload Photo</button>
+            <button onClick={() => uploadInputRef.current?.click()} className="group px-8 sm:px-10 py-4 sm:py-5 bg-rose-600 text-white rounded-[1.5rem] sm:rounded-[2rem] font-black text-base sm:text-lg shadow-2xl shadow-rose-200 hover:bg-rose-700 transition-all hover:-translate-y-1">
+              Start Your Magic ✨
+            </button>
           )}
+          
           <input type="file" ref={uploadInputRef} accept="image/*" onChange={handleFileUpload} className="hidden" />
         </div>
       </section>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
+      {/* Romantic Style Grid */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
         {styles.map((s) => {
           const state = genStates[s.id] || { isLoading: false, result: null, error: null, refinement: '', isHighRes: false };
           return (
-            <div key={s.id} className="bg-white rounded-[3.5rem] overflow-hidden border border-slate-100 shadow-xl flex flex-col transition-all duration-300 hover:-translate-y-2">
-              <div className="aspect-[4/5] relative bg-slate-100">
+            <div key={s.id} className="group bg-white rounded-[2.5rem] overflow-hidden border border-rose-50 shadow-xl hover:shadow-2xl transition-all duration-500 flex flex-col hover:-translate-y-2">
+              {/* Photo Area - Using 3:2 landscape aspect ratio to fit wide photos perfectly */}
+              <div className="aspect-[3/2] relative bg-rose-50 flex items-center justify-center overflow-hidden">
                 {state.isLoading ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-10 text-center gap-4 bg-indigo-50/20">
-                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs font-black uppercase tracking-widest text-indigo-600 animate-pulse">Generating Art...</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center gap-4 bg-white/95 backdrop-blur-md z-10">
+                    <div className="w-10 h-10 border-4 border-rose-100 border-t-rose-600 rounded-full animate-spin" />
+                    <p className="text-[9px] font-black uppercase tracking-widest text-rose-600">Creating Romance</p>
                   </div>
                 ) : state.result ? (
-                  <div className="w-full h-full relative">
-                    <img src={state.result} className="w-full h-full object-cover animate-in fade-in duration-500" alt={s.name} decoding="async" />
-                    {!state.isHighRes && <Watermark text="Session Limited" />}
+                  <div className="w-full h-full relative animate-in zoom-in-95 duration-700">
+                    <img src={state.result} className="w-full h-full object-cover" alt={s.name} decoding="async" />
+                    {!state.isHighRes && <Watermark text="Valentine Limited" />}
+                    <button 
+                      onClick={() => setGenStates(prev => ({...prev, [s.id]: {...prev[s.id], result: null}}))}
+                      className="absolute top-3 right-3 p-2 bg-white/30 backdrop-blur-md rounded-xl text-white hover:bg-white hover:text-rose-600 transition-all z-20"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                   </div>
                 ) : (
-                  <div className="w-full h-full cursor-pointer relative group" onClick={() => handleGenerate(s)}>
+                  <div className="w-full h-full cursor-pointer relative group/img flex items-center justify-center bg-white p-2" onClick={() => handleGenerate(s)}>
+                    {/* Background Soft Glow */}
+                    <img src={s.imageUrl} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20" alt="" />
+                    {/* Contained Preview Image */}
                     <img 
                       src={s.imageUrl} 
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                      className="relative z-10 w-full h-full object-contain rounded-2xl shadow-xl transition-all duration-700 group-hover/img:scale-[1.03] border-2 border-white" 
                       alt={s.name} 
                       loading="lazy"
                       decoding="async"
                     />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="bg-white px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest">Apply Style</span>
+                    {/* Apply Label */}
+                    <div className="absolute inset-0 z-20 bg-rose-900/10 opacity-0 group-hover/img:opacity-100 transition-all duration-500 flex items-center justify-center backdrop-blur-[1px]">
+                      <div className="bg-white px-5 py-2.5 rounded-2xl font-black text-[9px] uppercase tracking-widest text-rose-600 shadow-xl">
+                        Apply This Look
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
-              <div className="p-10 space-y-6 flex-grow flex flex-col">
-                <h4 className="font-black text-2xl text-slate-800 tracking-tight">{s.name}</h4>
-                {state.result && (
-                  <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Refine</label>
-                      <input 
-                        type="text" value={state.refinement}
-                        onChange={(e) => setGenStates(prev => ({...prev, [s.id]: {...prev[s.id], refinement: e.target.value}}))}
-                        placeholder="Add details (e.g. smile, beard)"
-                        className="w-full px-5 py-3 rounded-xl bg-slate-50 border border-slate-100 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500"
-                        onKeyPress={(e) => e.key === 'Enter' && handleGenerate(s)}
-                      />
+
+              {/* Card Actions */}
+              <div className="p-6 md:p-8 space-y-4 flex-grow flex flex-col justify-between">
+                <div className="space-y-3">
+                    <h4 className="font-black text-xl text-slate-800 tracking-tight leading-tight serif">{s.name}</h4>
+                    
+                   {state.result && (
+                    <div className="animate-in slide-in-from-bottom-2 duration-500">
+                        <div className="relative group/input">
+                            <label className="text-[8px] font-black text-rose-400 uppercase tracking-[0.2em] ml-1.5 mb-1 block">Personalize</label>
+                            <input 
+                                type="text" value={state.refinement}
+                                onChange={(e) => setGenStates(prev => ({...prev, [s.id]: {...prev[s.id], refinement: e.target.value}}))}
+                                placeholder="E.g. Add red roses..."
+                                className="w-full px-4 py-2.5 rounded-xl bg-rose-50/50 border border-rose-100 text-[10px] font-semibold outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-300 transition-all"
+                                onKeyPress={(e) => e.key === 'Enter' && handleGenerate(s)}
+                            />
+                        </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 pt-2">
+                   )}
+                </div>
+
+                <div className="space-y-3 pt-3 border-t border-rose-50">
+                  {state.result ? (
+                    <div className="grid grid-cols-2 gap-3">
                       {state.isHighRes ? (
-                        <button onClick={() => handleDownload(s.id)} className="col-span-2 py-4 bg-green-600 text-white rounded-2xl font-black shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2">
+                        <button onClick={() => handleDownload(s.id)} className="col-span-2 py-3.5 bg-rose-600 text-white rounded-2xl font-black text-[11px] shadow-xl hover:bg-rose-700 transition-all flex items-center justify-center gap-2 active:scale-95">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                           Download High-Res
                         </button>
                       ) : (
                         <>
-                          {!freePhotoClaimed && <button onClick={() => handleClaimFree(s.id)} className="col-span-2 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all">Claim 1 Free Copy</button>}
-                          <button onClick={() => handleAddToCart(s.id)} className="py-4 border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50">ADD TO CART</button>
-                          <button onClick={() => { handleAddToCart(s.id); setShowCheckout(true); }} className="py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black shadow-lg">BUY NOW</button>
+                          {!freePhotoClaimed && (
+                            <button onClick={() => handleClaimFree(s.id)} className="col-span-2 py-3.5 bg-rose-500 text-white rounded-2xl font-black text-[11px] shadow-xl hover:bg-rose-600 transition-all active:scale-95">
+                              Claim 1 Free Surprise
+                            </button>
+                          )}
+                          <button onClick={() => handleAddToCart(s.id)} className="py-2.5 border-2 border-rose-100 rounded-2xl font-black text-[9px] text-rose-400 uppercase tracking-widest hover:bg-rose-50 transition-all">
+                            TO CART
+                          </button>
+                          <button onClick={() => { handleAddToCart(s.id); setShowCheckout(true); }} className="py-2.5 bg-slate-900 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-black shadow-xl transition-all">
+                            GET NOW
+                          </button>
                         </>
                       )}
                     </div>
-                  </div>
-                )}
-                {!state.result && !state.isLoading && (
-                  <button onClick={() => handleGenerate(s)} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all">Apply Style</button>
-                )}
-                {state.error && <p className="text-[10px] text-red-500 font-bold text-center bg-red-50 p-2 rounded-xl border border-red-100">{state.error}</p>}
+                  ) : (
+                    !state.isLoading && (
+                      <button onClick={() => handleGenerate(s)} className="w-full py-3.5 bg-rose-600 text-white rounded-2xl font-black text-[11px] shadow-2xl shadow-rose-100 hover:bg-rose-700 transition-all flex items-center justify-center gap-3 group/btn active:scale-95">
+                        <span>Transform Now</span>
+                        <span className="group-hover/btn:scale-125 transition-transform">💝</span>
+                      </button>
+                    )
+                  )}
+                  {state.error && (
+                    <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-100 flex items-start gap-2">
+                      <p className="text-[8px] text-rose-600 font-bold leading-tight uppercase tracking-widest">{state.error}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
