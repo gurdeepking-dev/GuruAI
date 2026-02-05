@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import UserView from './components/UserView';
 import AdminView from './components/AdminView';
@@ -10,14 +10,24 @@ import Privacy from './components/Privacy';
 import Refund from './components/Refund';
 import Shipping from './components/Shipping';
 import { CartItem, ViewType } from './types';
+import { analytics } from './services/analytics';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType | 'terms' | 'privacy' | 'refund' | 'shipping'>('home');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
 
+  useEffect(() => {
+    analytics.init();
+  }, []);
+
   const addToCart = (item: CartItem) => {
     setCart(prev => [...prev, item]);
+    analytics.track('AddToCart', { 
+      content_name: item.styleName,
+      value: item.price,
+      currency: 'INR'
+    });
   };
 
   const removeFromCart = (id: string) => {
@@ -63,7 +73,10 @@ const App: React.FC = () => {
         currentView={currentView as ViewType}
         setView={(v) => setCurrentView(v)}
         cartCount={cart.length}
-        onOpenCheckout={() => setShowCheckoutModal(true)}
+        onOpenCheckout={() => {
+          setShowCheckoutModal(true);
+          analytics.track('InitiateCheckout');
+        }}
         user={null}
         onLoginClick={() => {}}
         onLogout={() => {}}

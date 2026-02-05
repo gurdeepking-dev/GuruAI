@@ -25,12 +25,17 @@ export interface PaymentConfig {
   photoPrice: number;
 }
 
+export interface TrackingConfig {
+  metaPixelId?: string;
+}
+
 export interface AdminSettings {
   passwordHash: string;
   username: string;
   payment: PaymentConfig;
+  tracking: TrackingConfig;
   geminiApiKey?: string;
-  geminiApiKeys?: ApiKeyRecord[]; // Supporting a pool of keys
+  geminiApiKeys?: ApiKeyRecord[];
 }
 
 export interface CartItem {
@@ -52,6 +57,14 @@ export interface TransactionRecord {
   amount: number;
   items: string[];
   status: 'success' | 'failed';
+  created_at?: string;
+}
+
+export interface UserActivity {
+  id?: string;
+  event_name: string;
+  event_data?: any;
+  session_id: string;
   created_at?: string;
 }
 

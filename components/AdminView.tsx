@@ -11,7 +11,7 @@ const AdminView: React.FC = () => {
   
   const [styles, setStyles] = useState<StyleTemplate[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
-  const [activeTab, setActiveTab] = useState<'styles' | 'keys' | 'payment' | 'security'>('styles');
+  const [activeTab, setActiveTab] = useState<'styles' | 'keys' | 'payment' | 'tracking' | 'security'>('styles');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -182,7 +182,7 @@ const AdminView: React.FC = () => {
     if (adminSettings) {
       try {
         await storageService.saveAdminSettings(adminSettings);
-        showNotification('Payment Settings Saved');
+        showNotification('Settings Saved');
       } catch (err) {
         alert("Failed to save settings.");
       }
@@ -218,18 +218,18 @@ const AdminView: React.FC = () => {
         <form onSubmit={handleLogin} className="space-y-4">
           <input 
             type="text" placeholder="Username"
-            className="w-full px-6 py-4 rounded-2xl border border-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 transition-all font-medium"
+            className="w-full px-6 py-4 rounded-2xl border border-slate-100 outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50 transition-all font-medium"
             value={loginForm.username}
             onChange={e => setLoginForm({...loginForm, username: e.target.value})}
           />
           <input 
             type="password" placeholder="Password"
-            className="w-full px-6 py-4 rounded-2xl border border-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 transition-all font-medium"
+            className="w-full px-6 py-4 rounded-2xl border border-slate-100 outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50 transition-all font-medium"
             value={loginForm.password}
             onChange={e => setLoginForm({...loginForm, password: e.target.value})}
           />
           {loginError && <p className="text-red-500 text-xs font-bold">{loginError}</p>}
-          <button className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all">
+          <button className="w-full py-5 bg-rose-600 text-white rounded-2xl font-black shadow-xl hover:bg-rose-700 transition-all">
             Unlock Panel
           </button>
         </form>
@@ -243,21 +243,21 @@ const AdminView: React.FC = () => {
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Database Connected</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">System Live</span>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin Mode</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin Controls</span>
         </div>
         <button onClick={handleLogout} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl text-xs font-black hover:bg-red-50 hover:text-red-500 transition-all">Logout</button>
       </div>
 
       <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-fit mx-auto overflow-x-auto">
-        {['styles', 'keys', 'payment', 'security'].map((t) => (
+        {['styles', 'keys', 'payment', 'tracking', 'security'].map((t) => (
           <button 
             key={t}
             onClick={() => setActiveTab(t as any)}
             className={`px-8 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === t ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
           >
-            {t === 'keys' ? 'API Keys Pool' : t}
+            {t === 'keys' ? 'API Pool' : t === 'tracking' ? 'Analytics' : t}
           </button>
         ))}
       </div>
@@ -276,13 +276,13 @@ const AdminView: React.FC = () => {
               <input 
                 type="text" value={styleForm.name}
                 onChange={e => setStyleForm({...styleForm, name: e.target.value})}
-                className="w-full px-5 py-3 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                className="w-full px-5 py-3 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-rose-500 font-medium"
                 placeholder="Style Name"
               />
               <textarea 
                 value={styleForm.prompt}
                 onChange={e => setStyleForm({...styleForm, prompt: e.target.value})}
-                className="w-full px-5 py-3 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-indigo-500 h-32 resize-none font-medium text-sm"
+                className="w-full px-5 py-3 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-rose-500 h-32 resize-none font-medium text-sm"
                 placeholder="AI Prompt"
               />
               <input type="file" onChange={(e) => {
@@ -300,7 +300,7 @@ const AdminView: React.FC = () => {
                   <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">Upload Sample Image</span>
                 )}
               </label>
-              <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all">Save Style</button>
+              <button type="submit" className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black shadow-lg hover:bg-rose-700 transition-all">Save Style</button>
               <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-50">
                 <button type="button" onClick={handleExport} className="py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200">Export</button>
                 <button type="button" onClick={() => importInputRef.current?.click()} className="py-3 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200">Import</button>
@@ -315,13 +315,45 @@ const AdminView: React.FC = () => {
                 <div className="flex-grow min-w-0">
                   <h4 className="font-bold text-slate-800 truncate">{s.name}</h4>
                   <div className="flex gap-4 mt-3">
-                    <button onClick={() => setStyleForm({ id: s.id, name: s.name, prompt: s.prompt, description: s.description, image: s.imageUrl })} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Edit</button>
+                    <button onClick={() => setStyleForm({ id: s.id, name: s.name, prompt: s.prompt, description: s.description, image: s.imageUrl })} className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Edit</button>
                     <button onClick={() => handleDeleteStyle(s.id)} className="text-[10px] font-black text-red-400 uppercase tracking-widest">Delete</button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'tracking' && adminSettings && (
+        <div className="max-w-2xl mx-auto bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
+          <div className="space-y-2">
+            <h3 className="text-2xl font-black text-slate-800 tracking-tighter">Meta Pixel Tracking</h3>
+            <p className="text-xs text-slate-500 font-medium">Add your Pixel ID to track Instagram traffic and measure conversions.</p>
+          </div>
+          <form onSubmit={handleSavePaymentConfig} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Meta Pixel ID</label>
+              <input 
+                type="text" 
+                value={adminSettings.tracking.metaPixelId || ''}
+                onChange={e => setAdminSettings({...adminSettings, tracking: {...adminSettings.tracking, metaPixelId: e.target.value}})}
+                placeholder="e.g. 123456789012345"
+                className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-mono text-sm outline-none focus:ring-2 focus:ring-rose-500" 
+              />
+            </div>
+            <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 space-y-2">
+               <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Events Automatically Tracked:</p>
+               <ul className="text-[10px] font-bold text-rose-400 grid grid-cols-2 gap-2">
+                 <li>• PageView (On Load)</li>
+                 <li>• Lead (First Photo Upload)</li>
+                 <li>• AddToCart</li>
+                 <li>• InitiateCheckout</li>
+                 <li>• Purchase (Completed Payment)</li>
+               </ul>
+            </div>
+            <button type="submit" className="w-full py-5 bg-rose-600 text-white rounded-2xl font-black shadow-xl hover:bg-rose-700 transition-all active:scale-95">Save Analytics Settings</button>
+          </form>
         </div>
       )}
 
@@ -336,7 +368,7 @@ const AdminView: React.FC = () => {
                   type="text" value={keyForm.label}
                   onChange={e => setKeyForm({...keyForm, label: e.target.value})}
                   placeholder="e.g. Project A Key"
-                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-medium outline-none focus:ring-2 focus:ring-indigo-500" 
+                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-medium outline-none focus:ring-2 focus:ring-rose-500" 
                 />
               </div>
               <div className="sm:col-span-6 space-y-2">
@@ -345,11 +377,11 @@ const AdminView: React.FC = () => {
                   type="password" value={keyForm.key}
                   onChange={e => setKeyForm({...keyForm, key: e.target.value})}
                   placeholder="AIzaSy..."
-                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500" 
+                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-mono text-sm outline-none focus:ring-2 focus:ring-rose-500" 
                 />
               </div>
               <div className="sm:col-span-2">
-                <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all">Add</button>
+                <button type="submit" className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black shadow-lg hover:bg-rose-700 transition-all">Add</button>
               </div>
             </form>
           </div>
@@ -387,7 +419,7 @@ const AdminView: React.FC = () => {
               <input 
                 type="text" value={adminSettings.payment.keyId}
                 onChange={e => setAdminSettings({...adminSettings, payment: {...adminSettings.payment, keyId: e.target.value}})}
-                className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500" 
+                className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-mono text-sm outline-none focus:ring-2 focus:ring-rose-500" 
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -408,7 +440,7 @@ const AdminView: React.FC = () => {
                 />
               </div>
             </div>
-            <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all">Save Changes</button>
+            <button type="submit" className="w-full py-5 bg-rose-600 text-white rounded-2xl font-black shadow-xl hover:bg-rose-700 transition-all">Save Changes</button>
           </form>
         </div>
       )}

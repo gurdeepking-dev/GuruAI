@@ -9,16 +9,25 @@ const INITIALIZED_KEY = 'styleswap_db_initialized';
 const STYLES_CACHE_KEY = 'styleswap_styles_cache_v1';
 
 export const DEFAULT_STYLES: StyleTemplate[] = [
-  { id: '1', name: 'Royal Indian Wedding', imageUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=500&q=75', prompt: 'A magnificent Indian wedding portrait. Traditional royal attire with intricate gold embroidery, heavy jewelry, and a palace background. Warm cinematic lighting.', description: 'Traditional elegance.' },
-  { id: '2', name: 'Cyberpunk Neon', imageUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=500&q=75', prompt: 'Cyberpunk 2077 style. Neon glowing accents, futuristic techwear, rainy night city background with teal and pink lighting. High-tech aesthetic.', description: 'Futuristic sci-fi.' },
-  { id: '3', name: 'Pixar Animation', imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&q=75', prompt: '3D Disney Pixar animation style. Big expressive eyes, smooth skin textures, stylized features, vibrant and soft cinematic lighting.', description: '3D Animated character.' },
-  { id: '4', name: 'Greek Marble Statue', imageUrl: 'https://images.unsplash.com/photo-1549887534-1541e9326642?w=500&q=75', prompt: 'Classic white marble Greek sculpture. Intricate carved details, smooth stone texture, museum gallery lighting, timeless museum aesthetic.', description: 'Ancient masterpiece.' },
-  { id: '5', name: 'Detailed Pencil Sketch', imageUrl: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=500&q=75', prompt: 'Hyper-realistic pencil charcoal sketch on textured paper. Fine lines, artistic shading, graphite smudges, hand-drawn look.', description: 'Artistic hand-drawing.' },
-  { id: '6', name: 'Van Gogh Oil Painting', imageUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=500&q=75', prompt: 'Impressionist oil painting in the style of Vincent van Gogh. Thick visible brushstrokes, swirling colors, Starry Night color palette.', description: 'Classic impressionism.' },
-  { id: '7', name: '1950s Hollywood Noir', imageUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500&q=75', prompt: '1950s Black and white film noir cinematography. High contrast, dramatic shadows, moody atmosphere, sharp focus, vintage cinematic look.', description: 'Vintage movie star.' },
-  { id: '8', name: 'GTA Loading Screen', imageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=500&q=75', prompt: 'Stylized vector art loading screen style. Thick black outlines, high contrast saturated colors, digital illustration aesthetic.', description: 'Comic-book stylized.' },
-  { id: '9', name: 'Viking Chieftain', imageUrl: 'https://images.unsplash.com/photo-1519074063912-ad2dbf50b16d?w=500&q=75', prompt: 'Rough Viking era warrior. Fur clothing, tribal face paint, snowy dark forest background, cinematic cold lighting, epic historical look.', description: 'Norse warrior.' },
-  { id: '10', name: 'Studio Ghibli Anime', imageUrl: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=500&q=75', prompt: 'Hand-painted Studio Ghibli anime style. Soft watercolor textures, whimsical atmosphere, lush green background, gentle lighting.', description: 'Japanese animation.' }
+  { 
+    id: 'valentine-love', 
+    name: 'Eternal Romance', 
+    imageUrl: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=800&q=80', 
+    prompt: 'A romantic fine art photo with a soft dreamy glow, surrounded by floating red and pink rose petals, elegant lighting, warm color palette, professional photography, ethereal atmosphere. Preserve facial identity perfectly.', 
+    description: 'Perfect for Valentine gifts.' 
+  },
+  { 
+    id: 'viking-sikh', 
+    name: 'Sikh Warrior Viking', 
+    imageUrl: 'https://images.unsplash.com/photo-1519074063912-ad2dbf50b16d?w=800&q=80', 
+    prompt: 'A majestic Sikh warrior in Viking chieftain attire, wearing a traditional turban with ceremonial accents, thick beard, heavy fur cloak with silver brooches, leather armor, standing in a snowy misty forest, hyper-realistic, historical epic cinematic style.', 
+    description: 'Norse-Sikh fusion warrior.' 
+  },
+  { id: '1', name: 'Royal Indian Wedding', imageUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=800&q=80', prompt: 'A magnificent Indian wedding photo. Traditional royal attire with intricate gold embroidery, heavy jewelry, and a palace background. Warm cinematic lighting.', description: 'Traditional elegance.' },
+  { id: '2', name: 'Cyberpunk Neon', imageUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=800&q=80', prompt: 'Cyberpunk 2077 style. Neon glowing accents, futuristic techwear, rainy night city background with teal and pink lighting. High-tech aesthetic.', description: 'Futuristic sci-fi.' },
+  { id: '3', name: 'Pixar Animation', imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&q=80', prompt: '3D Disney Pixar animation style. Big expressive eyes, smooth skin textures, stylized features, vibrant and soft cinematic lighting.', description: '3D Animated character.' },
+  { id: '4', name: 'Greek Marble Statue', imageUrl: 'https://images.unsplash.com/photo-1549887534-1541e9326642?w=800&q=80', prompt: 'Classic white marble Greek sculpture. Intricate carved details, smooth stone texture, museum gallery lighting, timeless museum aesthetic.', description: 'Ancient masterpiece.' },
+  { id: '10', name: 'Studio Ghibli Anime', imageUrl: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80', prompt: 'Hand-painted Studio Ghibli anime style. Soft watercolor textures, whimsical atmosphere, lush green background, gentle lighting.', description: 'Japanese animation.' }
 ];
 
 export const DEFAULT_ADMIN: AdminSettings = {
@@ -32,6 +41,9 @@ export const DEFAULT_ADMIN: AdminSettings = {
     currency: process.env.DEFAULT_CURRENCY || 'INR',
     enabled: true,
     photoPrice: parseFloat(process.env.PHOTO_PRICE || '8')
+  },
+  tracking: {
+    metaPixelId: ''
   }
 };
 
@@ -56,7 +68,7 @@ export const storageService = {
       
       if ((!data || data.length === 0) && !localStorage.getItem(INITIALIZED_KEY)) {
         localStorage.setItem(INITIALIZED_KEY, 'true');
-        Promise.all(DEFAULT_STYLES.map(s => this.saveStyle(s)));
+        await Promise.all(DEFAULT_STYLES.map(s => this.saveStyle(s)));
         return DEFAULT_STYLES;
       }
 
@@ -115,7 +127,8 @@ export const storageService = {
       
       const settings = data.config as AdminSettings;
       
-      // Sync legacy geminiApiKey if pool is empty
+      if (!settings.tracking) settings.tracking = { metaPixelId: '' };
+
       if (settings.geminiApiKey && (!settings.geminiApiKeys || settings.geminiApiKeys.length === 0)) {
         settings.geminiApiKeys = [{
           id: 'legacy-key',
@@ -162,6 +175,23 @@ export const storageService = {
       created_at: new Date().toISOString()
     });
     if (error) throw error;
+  },
+
+  async logActivity(eventName: string, eventData: any = {}): Promise<void> {
+    const sessionId = localStorage.getItem('styleswap_session_id') || Math.random().toString(36).substring(7);
+    localStorage.setItem('styleswap_session_id', sessionId);
+
+    try {
+      await supabase.from('user_activities').insert({
+        event_name: eventName,
+        event_data: eventData,
+        session_id: sessionId,
+        created_at: new Date().toISOString()
+      });
+    } catch (err) {
+      // Quiet fail to not interrupt user flow
+      console.debug('Activity logging failed', err);
+    }
   },
 
   getCurrencySymbol(currency: string = 'INR'): string {
