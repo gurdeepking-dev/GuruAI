@@ -16,6 +16,21 @@ export interface ApiKeyRecord {
   addedAt: number;
 }
 
+export interface MagicPreviewConfig {
+  id: string;
+  name: string;
+  prompt: string;
+  description: string;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  type: 'percentage' | 'fixed';
+  value: number;
+  isActive: boolean;
+}
+
 export interface PaymentConfig {
   gateway: 'Razorpay';
   keyId: string;
@@ -36,6 +51,8 @@ export interface AdminSettings {
   tracking: TrackingConfig;
   geminiApiKey?: string;
   geminiApiKeys?: ApiKeyRecord[];
+  magicPreviews?: MagicPreviewConfig[];
+  coupons?: Coupon[];
 }
 
 export interface CartItem {

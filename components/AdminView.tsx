@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleTemplate, AdminSettings, ApiKeyRecord } from '../types';
+import { StyleTemplate, AdminSettings, ApiKeyRecord, MagicPreviewConfig, Coupon } from '../types';
 import { storageService } from '../services/storage';
 import { logger } from '../services/logger';
 import ActivityLogView from './ActivityLogView';
@@ -12,7 +12,7 @@ const AdminView: React.FC = () => {
   
   const [styles, setStyles] = useState<StyleTemplate[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
-  const [activeTab, setActiveTab] = useState<'styles' | 'keys' | 'payment' | 'tracking' | 'activities' | 'security'>('styles');
+  const [activeTab, setActiveTab] = useState<'styles' | 'magic' | 'keys' | 'payment' | 'tracking' | 'activities' | 'security' | 'coupons'>('styles');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -20,6 +20,7 @@ const AdminView: React.FC = () => {
   const [styleForm, setStyleForm] = useState({ id: '', name: '', prompt: '', description: '', image: '' });
   const [keyForm, setKeyForm] = useState({ label: '', key: '' });
   const [securityForm, setSecurityForm] = useState({ newUsername: '', currentPassword: '', newPassword: '' });
+  const [couponForm, setCouponForm] = useState({ code: '', type: 'percentage' as 'percentage' | 'fixed', value: 0 });
   const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -173,6 +174,57 @@ const AdminView: React.FC = () => {
     }
   };
 
+  const handleAddCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!couponForm.code || !adminSettings) return;
+
+    const newCoupon: Coupon = {
+      id: Date.now().toString(),
+      code: couponForm.code.toUpperCase().trim(),
+      type: couponForm.type,
+      value: couponForm.value,
+      isActive: true
+    };
+
+    const updatedSettings = {
+      ...adminSettings,
+      coupons: [...(adminSettings.coupons || []), newCoupon]
+    };
+
+    try {
+      await storageService.saveAdminSettings(updatedSettings);
+      setAdminSettings(updatedSettings);
+      setCouponForm({ code: '', type: 'percentage', value: 0 });
+      showNotification('Coupon Created');
+    } catch (err) {
+      alert("Failed to create coupon.");
+    }
+  };
+
+  const handleDeleteCoupon = async (id: string) => {
+    if (!adminSettings || !confirm('Delete this coupon?')) return;
+    const updatedCoupons = adminSettings.coupons?.filter(c => c.id !== id) || [];
+    const updatedSettings = { ...adminSettings, coupons: updatedCoupons };
+    try {
+      await storageService.saveAdminSettings(updatedSettings);
+      setAdminSettings(updatedSettings);
+      showNotification('Coupon Deleted');
+    } catch (err) {
+      alert("Failed to delete coupon.");
+    }
+  };
+
+  const handleUpdateMagicPreviews = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminSettings) return;
+    try {
+      await storageService.saveAdminSettings(adminSettings);
+      showNotification('Magic Previews Saved');
+    } catch (err) {
+      alert("Failed to update Magic Previews.");
+    }
+  };
+
   const showNotification = (msg: string) => {
     setSaveStatus(msg);
     setTimeout(() => setSaveStatus(null), 3000);
@@ -252,13 +304,13 @@ const AdminView: React.FC = () => {
       </div>
 
       <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-fit mx-auto overflow-x-auto">
-        {['styles', 'keys', 'payment', 'tracking', 'activities', 'security'].map((t) => (
+        {['styles', 'magic', 'keys', 'coupons', 'payment', 'tracking', 'activities', 'security'].map((t) => (
           <button 
             key={t}
             onClick={() => setActiveTab(t as any)}
             className={`px-8 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest whitespace-nowrap ${activeTab === t ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
           >
-            {t === 'keys' ? 'API Pool' : t === 'tracking' ? 'Analytics' : t === 'activities' ? 'Logs' : t}
+            {t === 'keys' ? 'API Pool' : t === 'tracking' ? 'Analytics' : t === 'activities' ? 'Logs' : t === 'magic' ? 'Magic Previews' : t === 'coupons' ? 'Coupons' : t}
           </button>
         ))}
       </div>
@@ -320,6 +372,144 @@ const AdminView: React.FC = () => {
                     <button onClick={() => handleDeleteStyle(s.id)} className="text-[10px] font-black text-red-400 uppercase tracking-widest">Delete</button>
                   </div>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'magic' && adminSettings && (
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black text-slate-800 tracking-tighter uppercase">Magic Previews Prompts</h3>
+              <p className="text-xs text-slate-500 font-medium">Configure the 4 prompts that automatically trigger when a user uploads their photo.</p>
+            </div>
+            
+            <form onSubmit={handleUpdateMagicPreviews} className="space-y-10">
+              <div className="grid sm:grid-cols-2 gap-8">
+                {(adminSettings.magicPreviews || []).map((m, index) => (
+                  <div key={m.id} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <span className="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center font-black text-xs">#{index + 1}</span>
+                      <h4 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Preview Slot {index + 1}</h4>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Preview Name</label>
+                      <input 
+                        type="text" 
+                        value={m.name}
+                        onChange={e => {
+                          const newPreviews = [...(adminSettings.magicPreviews || [])];
+                          newPreviews[index] = { ...newPreviews[index], name: e.target.value };
+                          setAdminSettings({...adminSettings, magicPreviews: newPreviews});
+                        }}
+                        className="w-full px-5 py-3 rounded-xl bg-white border border-slate-100 outline-none focus:ring-2 focus:ring-rose-500 font-bold text-sm"
+                        placeholder="e.g. Cyberpunk Hero"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Short Description</label>
+                      <input 
+                        type="text" 
+                        value={m.description}
+                        onChange={e => {
+                          const newPreviews = [...(adminSettings.magicPreviews || [])];
+                          newPreviews[index] = { ...newPreviews[index], description: e.target.value };
+                          setAdminSettings({...adminSettings, magicPreviews: newPreviews});
+                        }}
+                        className="w-full px-5 py-3 rounded-xl bg-white border border-slate-100 outline-none focus:ring-2 focus:ring-rose-500 font-medium text-xs text-slate-500"
+                        placeholder="e.g. Futuristic Transformation"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">AI Generation Prompt</label>
+                      <textarea 
+                        value={m.prompt}
+                        onChange={e => {
+                          const newPreviews = [...(adminSettings.magicPreviews || [])];
+                          newPreviews[index] = { ...newPreviews[index], prompt: e.target.value };
+                          setAdminSettings({...adminSettings, magicPreviews: newPreviews});
+                        }}
+                        className="w-full px-5 py-3 rounded-xl bg-white border border-slate-100 outline-none focus:ring-2 focus:ring-rose-500 font-medium text-[11px] h-24 resize-none leading-relaxed"
+                        placeholder="Describe the style transformation..."
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <button type="submit" className="w-full py-5 bg-rose-600 text-white rounded-[2rem] font-black shadow-xl hover:bg-rose-700 transition-all active:scale-95 text-sm uppercase tracking-widest">
+                Save Magic Previews Config ✨
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'coupons' && adminSettings && (
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
+            <h3 className="text-2xl font-black text-slate-800 tracking-tighter uppercase">Coupon Management</h3>
+            <form onSubmit={handleAddCoupon} className="grid sm:grid-cols-12 gap-4 items-end">
+              <div className="sm:col-span-4 space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Coupon Code</label>
+                <input 
+                  type="text" value={couponForm.code}
+                  onChange={e => setCouponForm({...couponForm, code: e.target.value})}
+                  placeholder="e.g. SAVE20"
+                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-bold uppercase outline-none focus:ring-2 focus:ring-rose-500" 
+                />
+              </div>
+              <div className="sm:col-span-3 space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Type</label>
+                <select 
+                  value={couponForm.type}
+                  onChange={e => setCouponForm({...couponForm, type: e.target.value as any})}
+                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-medium outline-none focus:ring-2 focus:ring-rose-500"
+                >
+                  <option value="percentage">Percentage (%)</option>
+                  <option value="fixed">Fixed Amount</option>
+                </select>
+              </div>
+              <div className="sm:col-span-3 space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Value</label>
+                <input 
+                  type="number" value={couponForm.value}
+                  onChange={e => setCouponForm({...couponForm, value: parseFloat(e.target.value)})}
+                  placeholder="e.g. 20"
+                  className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none focus:ring-2 focus:ring-rose-500" 
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <button type="submit" className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black shadow-lg hover:bg-rose-700 transition-all">Create</button>
+              </div>
+            </form>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {(adminSettings.coupons || []).map(c => (
+              <div key={c.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <h4 className="font-black text-lg text-slate-800 tracking-tight">{c.code}</h4>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                      {c.type === 'percentage' ? `${c.value}% OFF` : `${storageService.getCurrencySymbol()}${c.value} OFF`}
+                    </p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${c.isActive ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                    Active
+                  </span>
+                </div>
+                <button 
+                  onClick={() => handleDeleteCoupon(c.id)}
+                  className="w-full py-2 text-[10px] font-black text-red-400 hover:text-red-600 uppercase tracking-widest bg-red-50 rounded-xl transition-colors"
+                >
+                  Delete Coupon
+                </button>
               </div>
             ))}
           </div>

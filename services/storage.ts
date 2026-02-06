@@ -1,5 +1,5 @@
 
-import { StyleTemplate, AdminSettings, TransactionRecord, ApiKeyRecord } from '../types';
+import { StyleTemplate, AdminSettings, TransactionRecord, ApiKeyRecord, MagicPreviewConfig, Coupon } from '../types';
 import { logger } from './logger';
 import { supabase } from './supabase';
 import { imageStorage } from './imageStorage';
@@ -30,10 +30,19 @@ export const DEFAULT_STYLES: StyleTemplate[] = [
   { id: '10', name: 'Studio Ghibli Anime', imageUrl: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80', prompt: 'Hand-painted Studio Ghibli anime style. Soft watercolor textures, whimsical atmosphere, lush green background, gentle lighting.', description: 'Japanese animation.' }
 ];
 
+const DEFAULT_MAGIC_PREVIEWS: MagicPreviewConfig[] = [
+  { id: 'm1', name: 'Royal King', description: 'Ancient Royalty', prompt: 'A majestic royal king in golden armor with a velvet red cape, sitting on a marble throne, cinematic lighting.' },
+  { id: 'm2', name: 'Anime Hero', description: 'Action Style', prompt: 'A powerful anime protagonist with glowing energy, stylized vibrant colors, sharp lines, cinematic background.' },
+  { id: 'm3', name: 'Cyber Hunter', description: 'Future Warrior', prompt: 'A futuristic cybernetic hunter with neon blue visor, high-tech carbon fiber armor, rainy urban night background.' },
+  { id: 'm4', name: 'Oil Painting', description: 'Classic Art', prompt: 'A museum-quality oil painting with visible brushstrokes, dramatic chiaroscuro lighting, rich deep colors.' }
+];
+
 export const DEFAULT_ADMIN: AdminSettings = {
   username: 'admin',
   passwordHash: 'admin123',
   geminiApiKeys: [],
+  magicPreviews: DEFAULT_MAGIC_PREVIEWS,
+  coupons: [],
   payment: {
     gateway: 'Razorpay',
     keyId: process.env.RAZORPAY_KEY_ID || '',
@@ -128,6 +137,8 @@ export const storageService = {
       const settings = data.config as AdminSettings;
       
       if (!settings.tracking) settings.tracking = { metaPixelId: '' };
+      if (!settings.magicPreviews) settings.magicPreviews = DEFAULT_MAGIC_PREVIEWS;
+      if (!settings.coupons) settings.coupons = [];
 
       if (settings.geminiApiKey && (!settings.geminiApiKeys || settings.geminiApiKeys.length === 0)) {
         settings.geminiApiKeys = [{
