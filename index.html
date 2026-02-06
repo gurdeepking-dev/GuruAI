@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StyleSwap AI - Valentine Edition</title>
+    <title>chatgpt digital store - AI Art Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
         .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
         
         @keyframes float {
-            0% { transform: translateY(0px) rotate(0deg); opacity: 0; }
+            0[i] { transform: translateY(0px) rotate(0deg); opacity: 0; }
             50% { opacity: 0.8; }
             100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
         }
@@ -60,7 +60,7 @@
         for(let i=0; i<20; i++) {
             const heart = document.createElement('div');
             heart.className = 'heart-particle';
-            heart.innerHTML = '❤️';
+            heart.innerHTML = '✨';
             heart.style.left = Math.random() * 100 + 'vw';
             heart.style.fontSize = (Math.random() * 20 + 10) + 'px';
             heart.style.animationDelay = (Math.random() * 15) + 's';

@@ -1,6 +1,6 @@
 {
-  "name": "StyleSwap AI 3",
-  "description": "Transform your photos into various artistic styles using Gemini AI. Features a user-friendly style gallery and an admin panel for managing templates and API keys.",
+  "name": "chatgpt digital store",
+  "description": "Premium AI style transformations and digital artistic assets. Powered by advanced Gemini AI technology.",
   "requestFramePermissions": [
     "camera"
   ]

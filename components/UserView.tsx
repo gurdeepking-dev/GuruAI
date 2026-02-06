@@ -64,7 +64,13 @@ const UserView: React.FC<UserViewProps> = ({
       
       const initialStates: GenerationState = {};
       loadedStyles.forEach(s => {
-        initialStates[s.id] = { isLoading: false, result: null, error: null, refinement: '', isHighRes: false };
+        initialStates[s.id] = { 
+          isLoading: false, 
+          result: null, 
+          error: null, 
+          refinement: '', 
+          isHighRes: false 
+        };
       });
       setGenStates(initialStates);
       setFreePhotoClaimed(usageService.hasClaimedFreePhoto());
@@ -164,7 +170,7 @@ const UserView: React.FC<UserViewProps> = ({
     if (!state.result) return;
     const link = document.createElement('a');
     link.href = state.result;
-    link.download = `styleswap-${styleId}.png`;
+    link.download = `photo-${styleId}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -198,22 +204,79 @@ const UserView: React.FC<UserViewProps> = ({
 
     setCart([]);
     setShowCheckout(false);
-    alert("Payment Verified! Your photos are ready.");
+    alert("Paid! You can now download your photos in high quality.");
   };
 
   if (!settings) return (
     <div className="py-20 flex flex-col items-center justify-center gap-4 text-rose-400">
       <div className="w-10 h-10 border-4 border-rose-100 border-t-rose-500 rounded-full animate-spin" />
-      <p className="font-bold tracking-tight">Sprinkling Magic Dust...</p>
+      <p className="font-bold tracking-tight">Opening store...</p>
     </div>
   );
 
   const currencySymbol = storageService.getCurrencySymbol(settings.payment.currency);
 
   return (
-    <div className="space-y-12 sm:space-y-16 pb-24 max-w-7xl mx-auto px-4">
+    <div className="space-y-8 sm:space-y-12 pb-24 max-w-7xl mx-auto px-4">
+      {/* Tutorial Video Section */}
+      <section className="bg-white rounded-[2.5rem] p-6 sm:p-10 shadow-2xl border border-rose-100 text-center space-y-8 overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full blur-3xl -mr-10 -mt-10"></div>
+        
+        <div className="relative space-y-4">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-2xl animate-bounce">📽️</span>
+            <h3 className="text-lg sm:text-xl font-black text-slate-800 tracking-tight uppercase tracking-widest serif italic">Watch video to learn how it work</h3>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+             {/* Left side: Video */}
+            <div className="relative mx-auto w-full max-w-[280px] sm:max-w-xs aspect-[9/16] bg-slate-900 rounded-[2.5rem] p-3 shadow-2xl ring-8 ring-rose-50 overflow-hidden">
+              <video 
+                autoPlay muted playsInline loop controls 
+                className="w-full h-full object-contain rounded-2xl"
+                poster="https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=1200&q=80"
+              >
+                <source src="https://ghdwufjkpjuidyfsgkde.supabase.co/storage/v1/object/public/media/howto.mp4" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+
+            {/* Right side: Steps */}
+            <div className="text-left space-y-6">
+              <div className="space-y-4">
+                <div className="flex gap-4 items-start group">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black flex-shrink-0 group-hover:scale-110 transition-transform shadow-sm">1</div>
+                  <div>
+                    <h4 className="font-black text-slate-800 uppercase tracking-wide text-sm">Upload Photo</h4>
+                    <p className="text-slate-500 text-xs font-medium">Pick a clear photo from your phone.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 items-start group">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black flex-shrink-0 group-hover:scale-110 transition-transform shadow-sm">2</div>
+                  <div>
+                    <h4 className="font-black text-slate-800 uppercase tracking-wide text-sm">Choose Style</h4>
+                    <p className="text-slate-500 text-xs font-medium">Click "Transform My Photo" on any style you like.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 items-start group">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black flex-shrink-0 group-hover:scale-110 transition-transform shadow-sm">3</div>
+                  <div>
+                    <h4 className="font-black text-slate-800 uppercase tracking-wide text-sm">Get Your Art</h4>
+                    <p className="text-slate-500 text-xs font-medium">Claim your 1 Free photo or buy more in HD!</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 shadow-inner">
+                <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest text-center">It takes only 30 seconds! ✨</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-white rounded-[2.5rem] md:rounded-[4rem] p-6 md:p-12 shadow-2xl border border-rose-100 mt-4 text-center">
+      <section className="relative overflow-hidden bg-white rounded-[2.5rem] md:rounded-[4rem] p-6 md:p-12 shadow-2xl border border-rose-100 text-center">
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-rose-50 rounded-full blur-3xl opacity-60" />
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-pink-50 rounded-full blur-3xl opacity-60" />
         
@@ -221,11 +284,11 @@ const UserView: React.FC<UserViewProps> = ({
           <div className="relative" onClick={() => uploadInputRef.current?.click()}>
             <div className={`w-36 h-36 md:w-52 md:h-52 rounded-[2.5rem] flex items-center justify-center transition-all duration-500 shadow-2xl cursor-pointer hover:scale-[1.03] active:scale-95 ${userPhoto ? 'bg-white ring-8 ring-rose-50' : 'bg-gradient-to-br from-rose-500 to-pink-500 shadow-rose-200'}`}>
               {userPhoto ? (
-                <img src={userPhoto} className="w-full h-full object-cover rounded-[2.5rem]" alt="Target" />
+                <img src={userPhoto} className="w-full h-full object-cover rounded-[2.5rem]" alt="Your Photo" />
               ) : (
                 <div className="flex flex-col items-center gap-2">
                   <span className="text-white text-3xl sm:text-4xl">📸</span>
-                  <span className="text-[9px] sm:text-[10px] font-black text-rose-100 uppercase tracking-widest">Upload Your Photo</span>
+                  <span className="text-[10px] sm:text-[11px] font-black text-rose-100 uppercase tracking-widest">Upload Photo</span>
                 </div>
               )}
             </div>
@@ -239,19 +302,19 @@ const UserView: React.FC<UserViewProps> = ({
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 mb-1">
               <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
-              <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Make first AI photo for free 🎁</span>
+              <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Get 1 Photo for FREE 🎁</span>
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-tight serif">
-              StyleSwap <span className="text-rose-500 italic">Studio</span>
+              AI Magic <span className="text-rose-500 italic">Photos</span>
             </h1>
             <p className="text-sm md:text-base text-slate-400 font-semibold max-w-lg mx-auto leading-relaxed px-4">
-              Convert your photos into epic masterpieces. Claim your first high-res for <span className="text-rose-500">FREE</span>. Unlock more for just <span className="text-slate-900">{currencySymbol}{settings.payment.photoPrice}</span>.
+              Change your photo to a cool style. Get 1 photo for <span className="text-rose-500">FREE</span>. Others for just <span className="text-slate-900">{currencySymbol}{settings.payment.photoPrice}</span>.
             </p>
           </div>
 
           {!userPhoto && (
             <button onClick={() => uploadInputRef.current?.click()} className="group px-8 py-4 bg-rose-600 text-white rounded-[1.5rem] font-black text-base shadow-2xl shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95">
-              Upload Your Photo ✨
+              Choose Your Photo 📸
             </button>
           )}
           
@@ -263,45 +326,27 @@ const UserView: React.FC<UserViewProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-12">
         {styles.map((s) => {
           const state = genStates[s.id] || { isLoading: false, result: null, error: null, refinement: '', isHighRes: false };
-          const displayImage = state.result || s.imageUrl;
           
           return (
             <div key={s.id} className="group relative bg-white rounded-[2.5rem] overflow-hidden border-2 border-rose-50 shadow-lg hover:shadow-2xl hover:shadow-rose-100 transition-all duration-500 flex flex-col hover:-translate-y-2">
-              {/* Card Header (Title above Frame) */}
               <div className="px-7 pt-7 pb-4 flex justify-between items-center bg-gradient-to-b from-rose-50/50 to-white">
                 <h4 className="font-black text-xl sm:text-2xl text-slate-800 tracking-tight leading-tight serif italic">{s.name}</h4>
-                {s.id === 'valentine-love' && (
-                  <span className="text-[8px] font-black text-white bg-rose-500 px-2 py-0.5 rounded-full uppercase tracking-widest shadow-lg shadow-rose-200">Featured</span>
-                )}
               </div>
 
-              {/* Valentine Accent: Floating Heart in Corner */}
-              <div className="absolute top-[4.5rem] left-4 z-40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-                 <span className="text-2xl animate-bounce inline-block">💖</span>
-              </div>
-
-              {/* Square Aspect Ratio Frame (1:1) */}
               <div className="aspect-square relative bg-rose-50 flex items-center justify-center overflow-hidden">
-                {/* Decorative Inner Glow */}
                 <div className="absolute inset-0 z-10 pointer-events-none ring-1 ring-inset ring-rose-500/20 shadow-[inset_0_0_80px_rgba(244,63,94,0.1)]"></div>
-                
-                {/* Blurred Valentine Background Filler */}
-                <div className="absolute inset-0 z-0 bg-gradient-to-br from-rose-200/40 via-pink-100/30 to-rose-200/40"></div>
-                <img 
-                  src={displayImage} 
-                  className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-40 scale-110" 
-                  alt="" 
-                />
                 
                 {state.isLoading ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center gap-4 bg-white/60 backdrop-blur-md z-30">
                     <div className="w-12 h-12 border-4 border-rose-500 border-t-rose-100 rounded-full animate-spin" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 animate-pulse">Painting with Love...</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 animate-pulse">
+                      AI is working...
+                    </p>
                   </div>
                 ) : state.result ? (
                   <div className="w-full h-full relative z-20 animate-in zoom-in-95 duration-700 flex items-center justify-center">
                     <img src={state.result} className="max-w-full max-h-full object-contain" alt={s.name} decoding="async" />
-                    {!state.isHighRes && <Watermark text="Valentine Studio" />}
+                    {!state.isHighRes && <Watermark text="SAMPLE PHOTO" />}
                     <button 
                       onClick={() => setGenStates(prev => ({...prev, [s.id]: {...prev[s.id], result: null}}))}
                       className="absolute top-4 right-4 p-2.5 bg-white/60 backdrop-blur-md rounded-xl text-rose-600 hover:bg-rose-600 hover:text-white transition-all z-30 shadow-sm"
@@ -311,7 +356,6 @@ const UserView: React.FC<UserViewProps> = ({
                   </div>
                 ) : (
                   <div className="w-full h-full cursor-pointer relative z-20 group/img flex items-center justify-center" onClick={() => handleGenerate(s)}>
-                    {/* Main Image - Fully visible via object-contain */}
                     <img 
                       src={s.imageUrl} 
                       className="relative z-10 max-w-full max-h-full object-contain transition-all duration-700 group-hover/img:scale-[1.03]" 
@@ -319,33 +363,37 @@ const UserView: React.FC<UserViewProps> = ({
                       loading="lazy"
                       decoding="async"
                     />
-                    {/* Overlay Label with romantic style */}
                     <div className="absolute inset-0 z-30 bg-rose-900/20 opacity-0 group-hover/img:opacity-100 transition-all duration-500 flex items-center justify-center backdrop-blur-[2px]">
                       <div className="bg-white/95 px-7 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-rose-600 shadow-2xl flex items-center gap-2">
-                        <span>Click to apply this style</span>
-                        <span className="text-base">❤</span>
+                        <span>Try this style</span>
+                        <span className="text-base">✨</span>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Card Actions */}
               <div className="p-7 space-y-4 flex-grow flex flex-col justify-between bg-gradient-to-b from-white to-rose-50/20">
                 <div className="space-y-3">
                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">{s.description}</p>
                     
                    {state.result && (
-                    <div className="animate-in slide-in-from-bottom-2 duration-500">
-                        <div className="relative group/input">
-                            <label className="text-[8px] font-black text-rose-400 uppercase tracking-[0.2em] ml-1 mb-1.5 block">Fine Tune Artistic Result</label>
+                    <div className="animate-in slide-in-from-bottom-2 duration-500 space-y-2">
+                        <label className="text-[9px] font-black text-rose-400 uppercase tracking-widest ml-1 block">Want to change anything? (Optional)</label>
+                        <div className="flex gap-2">
                             <input 
                                 type="text" value={state.refinement}
                                 onChange={(e) => setGenStates(prev => ({...prev, [s.id]: {...prev[s.id], refinement: e.target.value}}))}
-                                placeholder="E.g. softer glow, more roses..."
-                                className="w-full px-5 py-3 rounded-2xl bg-white border-2 border-rose-100 text-[11px] font-semibold outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-300 transition-all placeholder:text-slate-300"
+                                placeholder="Example: more blue, smiling..."
+                                className="flex-grow px-4 py-2.5 rounded-xl bg-white border-2 border-rose-100 text-[11px] font-semibold outline-none focus:border-rose-300 transition-all placeholder:text-slate-300"
                                 onKeyPress={(e) => e.key === 'Enter' && handleGenerate(s)}
                             />
+                            <button 
+                                onClick={() => handleGenerate(s)}
+                                className="px-4 py-2.5 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 transition-all shadow-md active:scale-95"
+                            >
+                                Try Again
+                            </button>
                         </div>
                     </div>
                    )}
@@ -357,20 +405,20 @@ const UserView: React.FC<UserViewProps> = ({
                       {state.isHighRes ? (
                         <button onClick={() => handleDownload(s.id)} className="col-span-2 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                          Download HD Photo
+                          Save to your phone gallery
                         </button>
                       ) : (
                         <>
                           {!freePhotoClaimed && (
                             <button onClick={() => handleClaimFree(s.id)} className="col-span-2 py-4 bg-rose-600 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-xl hover:bg-rose-700 transition-all active:scale-95 border-b-4 border-rose-800">
-                              Claim Free Love Photo 🎁
+                              Get 1 Free Gift 🎁
                             </button>
                           )}
                           <button onClick={() => handleAddToCart(s.id)} className="py-3 border-2 border-rose-100 bg-white rounded-[1.25rem] font-black text-[10px] text-rose-400 uppercase tracking-widest hover:bg-rose-50 transition-all">
-                            Add Cart
+                            Save for later
                           </button>
                           <button onClick={() => { handleAddToCart(s.id); setShowCheckout(true); }} className="py-3 bg-slate-900 text-white rounded-[1.25rem] font-black text-[10px] uppercase tracking-widest hover:bg-black shadow-xl transition-all">
-                            Unlock HD
+                            Buy HD Photo
                           </button>
                         </>
                       )}
@@ -378,14 +426,13 @@ const UserView: React.FC<UserViewProps> = ({
                   ) : (
                     !state.isLoading && (
                       <button onClick={() => handleGenerate(s)} className="w-full py-5 bg-rose-600 text-white rounded-[1.5rem] font-black text-[12px] uppercase tracking-widest shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all flex items-center justify-center gap-3 group/btn active:scale-95 border-b-4 border-rose-800">
-                        <span>Transform Now</span>
-                        <span className="text-lg group-hover/btn:scale-125 transition-transform">❤</span>
+                        <span>Transform My Photo ✨</span>
                       </button>
                     )
                   )}
                   {state.error && (
                     <div className="p-3 rounded-2xl bg-rose-50 border-2 border-rose-100">
-                      <p className="text-[9px] text-rose-600 font-bold uppercase tracking-widest leading-relaxed">{state.error}</p>
+                      <p className="text-[9px] text-rose-600 font-bold uppercase tracking-widest text-center">{state.error}</p>
                     </div>
                   )}
                 </div>

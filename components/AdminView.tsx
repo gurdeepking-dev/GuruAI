@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleTemplate, AdminSettings, ApiKeyRecord } from '../types';
 import { storageService } from '../services/storage';
 import { logger } from '../services/logger';
+import ActivityLogView from './ActivityLogView';
 
 const AdminView: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(storageService.isAdminLoggedIn());
@@ -11,7 +12,7 @@ const AdminView: React.FC = () => {
   
   const [styles, setStyles] = useState<StyleTemplate[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
-  const [activeTab, setActiveTab] = useState<'styles' | 'keys' | 'payment' | 'tracking' | 'security'>('styles');
+  const [activeTab, setActiveTab] = useState<'styles' | 'keys' | 'payment' | 'tracking' | 'activities' | 'security'>('styles');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -251,13 +252,13 @@ const AdminView: React.FC = () => {
       </div>
 
       <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-fit mx-auto overflow-x-auto">
-        {['styles', 'keys', 'payment', 'tracking', 'security'].map((t) => (
+        {['styles', 'keys', 'payment', 'tracking', 'activities', 'security'].map((t) => (
           <button 
             key={t}
             onClick={() => setActiveTab(t as any)}
-            className={`px-8 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === t ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+            className={`px-8 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest whitespace-nowrap ${activeTab === t ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
           >
-            {t === 'keys' ? 'API Pool' : t === 'tracking' ? 'Analytics' : t}
+            {t === 'keys' ? 'API Pool' : t === 'tracking' ? 'Analytics' : t === 'activities' ? 'Logs' : t}
           </button>
         ))}
       </div>
@@ -324,6 +325,8 @@ const AdminView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {activeTab === 'activities' && <ActivityLogView />}
 
       {activeTab === 'tracking' && adminSettings && (
         <div className="max-w-2xl mx-auto bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">

@@ -6,7 +6,7 @@ const Shipping: React.FC = () => {
     <div className="max-w-4xl mx-auto py-16 px-6 bg-white rounded-[3rem] shadow-xl border border-slate-100 animate-in fade-in duration-700">
       <h2 className="text-4xl font-black text-slate-900 mb-8 tracking-tighter text-center">Shipping and Delivery</h2>
       <div className="prose prose-slate max-w-none space-y-6 text-slate-600 font-medium">
-        <p>StyleSwap AI strictly provides digital services and products.</p>
+        <p>chatgpt digital store strictly provides digital services and products.</p>
         
         <section className="space-y-2">
           <h3 className="text-xl font-bold text-slate-800">1. Delivery Method</h3>

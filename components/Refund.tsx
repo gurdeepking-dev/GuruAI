@@ -10,7 +10,7 @@ const Refund: React.FC = () => {
         
         <section className="space-y-2">
           <h3 className="text-xl font-bold text-slate-800">1. Digital Nature of Products</h3>
-          <p>Since StyleSwap AI provides non-tangible, irrevocable digital goods, we do not issue refunds once the order is completed and the high-resolution image is delivered.</p>
+          <p>Since chatgpt digital store provides non-tangible, irrevocable digital goods, we do not issue refunds once the order is completed and the high-resolution image is delivered.</p>
         </section>
 
         <section className="space-y-2">
@@ -25,7 +25,7 @@ const Refund: React.FC = () => {
 
         <section className="space-y-2">
           <h3 className="text-xl font-bold text-slate-800">4. Support</h3>
-          <p>If you experience any technical issues in accessing or downloading your purchased high-res image, please contact us at hello@styleswap.ai. We will ensure the issue is resolved and you receive your file.</p>
+          <p>If you experience any technical issues in accessing or downloading your purchased high-res image, please contact us at support@digitalstore.ai. We will ensure the issue is resolved and you receive your file.</p>
         </section>
       </div>
     </div>
