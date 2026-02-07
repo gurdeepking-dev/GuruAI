@@ -12,30 +12,25 @@ export const DEFAULT_STYLES: StyleTemplate[] = [
   { 
     id: 'valentine-love', 
     name: 'Eternal Romance', 
-    imageUrl: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=800&q=80', 
+    imageUrl: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500&q=75&auto=format', 
     prompt: 'A romantic fine art photo with a soft dreamy glow, surrounded by floating red and pink rose petals, elegant lighting, warm color palette, professional photography, ethereal atmosphere. Preserve facial identity perfectly.', 
     description: 'Perfect for Valentine gifts.' 
   },
   { 
     id: 'viking-sikh', 
     name: 'Sikh Warrior Viking', 
-    imageUrl: 'https://images.unsplash.com/photo-1519074063912-ad2dbf50b16d?w=800&q=80', 
+    imageUrl: 'https://images.unsplash.com/photo-1519074063912-ad2dbf50b16d?w=500&q=75&auto=format', 
     prompt: 'A majestic Sikh warrior in Viking chieftain attire, wearing a traditional turban with ceremonial accents, thick beard, heavy fur cloak with silver brooches, leather armor, standing in a snowy misty forest, hyper-realistic, historical epic cinematic style.', 
     description: 'Norse-Sikh fusion warrior.' 
   },
-  { id: '1', name: 'Royal Indian Wedding', imageUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=800&q=80', prompt: 'A magnificent Indian wedding photo. Traditional royal attire with intricate gold embroidery, heavy jewelry, and a palace background. Warm cinematic lighting.', description: 'Traditional elegance.' },
-  { id: '2', name: 'Cyberpunk Neon', imageUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=800&q=80', prompt: 'Cyberpunk 2077 style. Neon glowing accents, futuristic techwear, rainy night city background with teal and pink lighting. High-tech aesthetic.', description: 'Futuristic sci-fi.' },
-  { id: '3', name: 'Pixar Animation', imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&q=80', prompt: '3D Disney Pixar animation style. Big expressive eyes, smooth skin textures, stylized features, vibrant and soft cinematic lighting.', description: '3D Animated character.' },
-  { id: '4', name: 'Greek Marble Statue', imageUrl: 'https://images.unsplash.com/photo-1549887534-1541e9326642?w=800&q=80', prompt: 'Classic white marble Greek sculpture. Intricate carved details, smooth stone texture, museum gallery lighting, timeless museum aesthetic.', description: 'Ancient masterpiece.' },
-  { id: '10', name: 'Studio Ghibli Anime', imageUrl: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80', prompt: 'Hand-painted Studio Ghibli anime style. Soft watercolor textures, whimsical atmosphere, lush green background, gentle lighting.', description: 'Japanese animation.' }
+  { id: '1', name: 'Royal Indian Wedding', imageUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=500&q=75&auto=format', prompt: 'A magnificent Indian wedding photo. Traditional royal attire with intricate gold embroidery, heavy jewelry, and a palace background. Warm cinematic lighting.', description: 'Traditional elegance.' },
+  { id: '2', name: 'Cyberpunk Neon', imageUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=500&q=75&auto=format', prompt: 'Cyberpunk 2077 style. Neon glowing accents, futuristic techwear, rainy night city background with teal and pink lighting. High-tech aesthetic.', description: 'Futuristic sci-fi.' },
+  { id: '3', name: 'Pixar Animation', imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&q=75&auto=format', prompt: '3D Disney Pixar animation style. Big expressive eyes, smooth skin textures, stylized features, vibrant and soft cinematic lighting.', description: '3D Animated character.' },
+  { id: '4', name: 'Greek Marble Statue', imageUrl: 'https://images.unsplash.com/photo-1549887534-1541e9326642?w=500&q=75&auto=format', prompt: 'Classic white marble Greek sculpture. Intricate carved details, smooth stone texture, museum gallery lighting, timeless museum aesthetic.', description: 'Ancient masterpiece.' },
+  { id: '10', name: 'Studio Ghibli Anime', imageUrl: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=500&q=75&auto=format', prompt: 'Hand-painted Studio Ghibli anime style. Soft watercolor textures, whimsical atmosphere, lush green background, gentle lighting.', description: 'Japanese animation.' }
 ];
 
-const DEFAULT_MAGIC_PREVIEWS: MagicPreviewConfig[] = [
-  { id: 'm1', name: 'Royal King', description: 'Ancient Royalty', prompt: 'A majestic royal king in golden armor with a velvet red cape, sitting on a marble throne, cinematic lighting.' },
-  { id: 'm2', name: 'Anime Hero', description: 'Action Style', prompt: 'A powerful anime protagonist with glowing energy, stylized vibrant colors, sharp lines, cinematic background.' },
-  { id: 'm3', name: 'Cyber Hunter', description: 'Future Warrior', prompt: 'A futuristic cybernetic hunter with neon blue visor, high-tech carbon fiber armor, rainy urban night background.' },
-  { id: 'm4', name: 'Oil Painting', description: 'Classic Art', prompt: 'A museum-quality oil painting with visible brushstrokes, dramatic chiaroscuro lighting, rich deep colors.' }
-];
+const DEFAULT_MAGIC_PREVIEWS: MagicPreviewConfig[] = []; // Removed default auto-previews
 
 export const DEFAULT_ADMIN: AdminSettings = {
   username: 'admin',
@@ -200,7 +195,6 @@ export const storageService = {
         created_at: new Date().toISOString()
       });
     } catch (err) {
-      // Quiet fail to not interrupt user flow
       console.debug('Activity logging failed', err);
     }
   },

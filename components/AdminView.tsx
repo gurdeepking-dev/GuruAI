@@ -4,6 +4,14 @@ import { StyleTemplate, AdminSettings, ApiKeyRecord, MagicPreviewConfig, Coupon 
 import { storageService } from '../services/storage';
 import { logger } from '../services/logger';
 import ActivityLogView from './ActivityLogView';
+import { optimizationService, OptimizationLog } from '../services/optimizationService';
+
+interface ConfirmState {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+}
 
 const AdminView: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(storageService.isAdminLoggedIn());
@@ -12,10 +20,25 @@ const AdminView: React.FC = () => {
   
   const [styles, setStyles] = useState<StyleTemplate[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
-  const [activeTab, setActiveTab] = useState<'styles' | 'magic' | 'keys' | 'payment' | 'tracking' | 'activities' | 'security' | 'coupons'>('styles');
+  const [activeTab, setActiveTab] = useState<'styles' | 'magic' | 'keys' | 'payment' | 'tracking' | 'activities' | 'security' | 'coupons' | 'optimizer'>('styles');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  // Custom Confirmation State
+  const [confirmState, setConfirmState] = useState<ConfirmState>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  // Optimizer States
+  const [optLogs, setOptLogs] = useState<OptimizationLog[]>([]);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optConfirming, setOptConfirming] = useState(false);
+  const [optStats, setOptStats] = useState({ saved: 0, count: 0 });
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   const [styleForm, setStyleForm] = useState({ id: '', name: '', prompt: '', description: '', image: '' });
   const [keyForm, setKeyForm] = useState({ label: '', key: '' });
@@ -28,6 +51,12 @@ const AdminView: React.FC = () => {
       loadData();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [optLogs]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -43,6 +72,46 @@ const AdminView: React.FC = () => {
       logger.error('Admin', 'Failed to load data', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const openConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmState({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmState(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  const handleRunOptimizer = async () => {
+    if (isOptimizing) return;
+    
+    // Step 1: Show confirmation UI on the button
+    if (!optConfirming) {
+      setOptConfirming(true);
+      setTimeout(() => setOptConfirming(false), 3000); // Reset after 3 seconds
+      return;
+    }
+
+    // Step 2: Run optimization
+    setOptConfirming(false);
+    setIsOptimizing(true);
+    setOptLogs([]);
+    try {
+      const result = await optimizationService.processStyles((newLog) => {
+        setOptLogs(prev => [...prev, newLog]);
+      });
+      setOptStats(result);
+      showNotification('Optimization Complete');
+      await loadData(); 
+    } catch (err) {
+      setOptLogs(prev => [...prev, { message: 'Optimization failed. Check network or permissions.', type: 'error', timestamp: Date.now() }]);
+    } finally {
+      setIsOptimizing(false);
     }
   };
 
@@ -120,18 +189,23 @@ const AdminView: React.FC = () => {
     }
   };
 
-  const handleDeleteStyle = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this style?')) return;
-    setIsDeleting(id);
-    try {
-      await storageService.deleteStyle(id);
-      setStyles(prev => prev.filter(s => s.id !== id));
-      showNotification('Style Deleted');
-    } catch (err: any) {
-      alert(`Delete failed: ${err.message}`);
-    } finally {
-      setIsDeleting(null);
-    }
+  const handleDeleteStyle = (id: string) => {
+    openConfirm(
+      'Delete Style',
+      'Are you sure you want to delete this style template?',
+      async () => {
+        setIsDeleting(id);
+        try {
+          await storageService.deleteStyle(id);
+          setStyles(prev => prev.filter(s => s.id !== id));
+          showNotification('Style Deleted');
+        } catch (err: any) {
+          alert(`Delete failed: ${err.message}`);
+        } finally {
+          setIsDeleting(null);
+        }
+      }
+    );
   };
 
   const handleAddKey = async (e: React.FormEvent) => {
@@ -161,17 +235,23 @@ const AdminView: React.FC = () => {
     }
   };
 
-  const handleDeleteKey = async (id: string) => {
-    if (!adminSettings || !confirm('Remove this API key?')) return;
-    const updatedKeys = adminSettings.geminiApiKeys?.filter(k => k.id !== id) || [];
-    const updatedSettings = { ...adminSettings, geminiApiKeys: updatedKeys };
-    try {
-      await storageService.saveAdminSettings(updatedSettings);
-      setAdminSettings(updatedSettings);
-      showNotification('API Key Removed');
-    } catch (err) {
-      alert("Failed to remove key.");
-    }
+  const handleDeleteKey = (id: string) => {
+    openConfirm(
+      'Remove API Key',
+      'Are you sure you want to remove this key from the pool?',
+      async () => {
+        if (!adminSettings) return;
+        const updatedKeys = adminSettings.geminiApiKeys?.filter(k => k.id !== id) || [];
+        const updatedSettings = { ...adminSettings, geminiApiKeys: updatedKeys };
+        try {
+          await storageService.saveAdminSettings(updatedSettings);
+          setAdminSettings(updatedSettings);
+          showNotification('API Key Removed');
+        } catch (err) {
+          alert("Failed to remove key.");
+        }
+      }
+    );
   };
 
   const handleAddCoupon = async (e: React.FormEvent) => {
@@ -182,7 +262,7 @@ const AdminView: React.FC = () => {
       id: Date.now().toString(),
       code: couponForm.code.toUpperCase().trim(),
       type: couponForm.type,
-      value: couponForm.value,
+      value: couponForm.value || 0,
       isActive: true
     };
 
@@ -201,17 +281,23 @@ const AdminView: React.FC = () => {
     }
   };
 
-  const handleDeleteCoupon = async (id: string) => {
-    if (!adminSettings || !confirm('Delete this coupon?')) return;
-    const updatedCoupons = adminSettings.coupons?.filter(c => c.id !== id) || [];
-    const updatedSettings = { ...adminSettings, coupons: updatedCoupons };
-    try {
-      await storageService.saveAdminSettings(updatedSettings);
-      setAdminSettings(updatedSettings);
-      showNotification('Coupon Deleted');
-    } catch (err) {
-      alert("Failed to delete coupon.");
-    }
+  const handleDeleteCoupon = (id: string) => {
+    openConfirm(
+      'Delete Coupon',
+      'Are you sure you want to delete this coupon code?',
+      async () => {
+        if (!adminSettings) return;
+        const updatedCoupons = adminSettings.coupons?.filter(c => c.id !== id) || [];
+        const updatedSettings = { ...adminSettings, coupons: updatedCoupons };
+        try {
+          await storageService.saveAdminSettings(updatedSettings);
+          setAdminSettings(updatedSettings);
+          showNotification('Coupon Deleted');
+        } catch (err) {
+          alert("Failed to delete coupon.");
+        }
+      }
+    );
   };
 
   const handleUpdateMagicPreviews = async (e: React.FormEvent) => {
@@ -292,6 +378,32 @@ const AdminView: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-10 pb-20">
+      {/* Confirm Modal */}
+      {confirmState.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="space-y-2 text-center">
+              <h4 className="text-xl font-black text-slate-800 tracking-tight">{confirmState.title}</h4>
+              <p className="text-sm text-slate-500 font-medium">{confirmState.message}</p>
+            </div>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmState.onConfirm}
+                className="flex-1 py-3 bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
@@ -304,13 +416,13 @@ const AdminView: React.FC = () => {
       </div>
 
       <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-fit mx-auto overflow-x-auto">
-        {['styles', 'magic', 'keys', 'coupons', 'payment', 'tracking', 'activities', 'security'].map((t) => (
+        {['styles', 'magic', 'keys', 'coupons', 'optimizer', 'payment', 'tracking', 'activities', 'security'].map((t) => (
           <button 
             key={t}
             onClick={() => setActiveTab(t as any)}
             className={`px-8 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest whitespace-nowrap ${activeTab === t ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
           >
-            {t === 'keys' ? 'API Pool' : t === 'tracking' ? 'Analytics' : t === 'activities' ? 'Logs' : t === 'magic' ? 'Magic Previews' : t === 'coupons' ? 'Coupons' : t}
+            {t === 'keys' ? 'API Pool' : t === 'tracking' ? 'Analytics' : t === 'activities' ? 'Logs' : t === 'magic' ? 'Magic Previews' : t === 'coupons' ? 'Coupons' : t === 'optimizer' ? 'Storage Fix' : t}
           </button>
         ))}
       </div>
@@ -374,6 +486,77 @@ const AdminView: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'optimizer' && (
+        <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
+            <div className="flex justify-between items-start">
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black text-slate-800 tracking-tighter uppercase">Storage Optimizer</h3>
+                <p className="text-xs text-slate-500 font-medium">This tool scans your Supabase library and optimizes images to WebP (80% quality, max 1200px).</p>
+              </div>
+              <button 
+                onClick={handleRunOptimizer}
+                disabled={isOptimizing}
+                className={`px-8 py-4 rounded-[1.5rem] font-black text-xs uppercase tracking-widest transition-all shadow-xl flex items-center gap-2 ${
+                  isOptimizing ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 
+                  optConfirming ? 'bg-orange-500 text-white animate-pulse' : 
+                  'bg-rose-600 text-white hover:bg-rose-700 active:scale-95'
+                }`}
+              >
+                {isOptimizing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                    Optimizing...
+                  </>
+                ) : optConfirming ? 'Click Again to Start ✨' : 'Start Optimization Run'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Library Size</p>
+                <p className="text-2xl font-black text-slate-800">{styles.length}</p>
+              </div>
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Optimized This Run</p>
+                <p className="text-2xl font-black text-green-600">{optStats.count}</p>
+              </div>
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 col-span-2 sm:col-span-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Space Saved (est)</p>
+                <p className="text-2xl font-black text-rose-600">{(optStats.saved / 1024).toFixed(1)} KB</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center px-1">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Process Terminal Output</h4>
+                {isOptimizing && <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>}
+              </div>
+              <div className="bg-slate-900 rounded-[2rem] p-6 h-64 overflow-y-auto font-mono text-[10px] space-y-1.5 scrollbar-hide border-4 border-slate-800 shadow-inner">
+                {optLogs.length === 0 ? (
+                  <p className="text-slate-500 italic">No logs yet. Press "Start Optimization" to begin the pipeline.</p>
+                ) : (
+                  optLogs.map((log, i) => (
+                    <div key={i} className="flex gap-3">
+                      <span className="text-slate-600">[{new Date(log.timestamp).toLocaleTimeString([], { hour12: false })}]</span>
+                      <span className={`${
+                        log.type === 'error' ? 'text-red-400' : 
+                        log.type === 'success' ? 'text-green-400' : 
+                        log.type === 'warn' ? 'text-yellow-400' : 
+                        'text-slate-300'
+                      }`}>
+                        {log.message}
+                      </span>
+                    </div>
+                  ))
+                )}
+                <div ref={logEndRef} />
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -478,8 +661,11 @@ const AdminView: React.FC = () => {
               <div className="sm:col-span-3 space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Value</label>
                 <input 
-                  type="number" value={couponForm.value}
-                  onChange={e => setCouponForm({...couponForm, value: parseFloat(e.target.value)})}
+                  type="number" value={couponForm.value || ''}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value);
+                    setCouponForm({...couponForm, value: isNaN(val) ? 0 : val});
+                  }}
                   placeholder="e.g. 20"
                   className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 font-bold outline-none focus:ring-2 focus:ring-rose-500" 
                 />
@@ -627,8 +813,11 @@ const AdminView: React.FC = () => {
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Price</label>
                 <input 
-                  type="number" step="0.01" value={adminSettings.payment.photoPrice}
-                  onChange={e => setAdminSettings({...adminSettings, payment: {...adminSettings.payment, photoPrice: parseFloat(e.target.value)}})}
+                  type="number" step="0.01" value={adminSettings.payment.photoPrice || ''}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value);
+                    setAdminSettings({...adminSettings, payment: {...adminSettings.payment, photoPrice: isNaN(val) ? 0 : val}});
+                  }}
                   className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 text-xl font-black" 
                 />
               </div>

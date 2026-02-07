@@ -40,10 +40,6 @@ const UserView: React.FC<UserViewProps> = ({
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const [freePhotoClaimed, setFreePhotoClaimed] = useState(false);
   const [settings, setSettings] = useState<any>(null);
-  
-  // State for the 4 automatic previews
-  const [showQuickPreviews, setShowQuickPreviews] = useState(false);
-  const [quickGenItems, setQuickGenItems] = useState<StyleTemplate[]>([]);
 
   useEffect(() => {
     logger.info('View', 'UserView mounted');
@@ -68,7 +64,6 @@ const UserView: React.FC<UserViewProps> = ({
       
       const initialStates: GenerationState = {};
       
-      // Initialize states for styles
       loadedStyles.forEach(s => {
         initialStates[s.id] = { 
           isLoading: false, 
@@ -78,19 +73,6 @@ const UserView: React.FC<UserViewProps> = ({
           isHighRes: false 
         };
       });
-
-      // Initialize states for magic previews
-      if (adminSettings.magicPreviews) {
-        adminSettings.magicPreviews.forEach((m: MagicPreviewConfig) => {
-          initialStates[m.id] = { 
-            isLoading: false, 
-            result: null, 
-            error: null, 
-            refinement: '', 
-            isHighRes: false 
-          };
-        });
-      }
 
       setGenStates(initialStates);
       setFreePhotoClaimed(usageService.hasClaimedFreePhoto());
@@ -108,7 +90,6 @@ const UserView: React.FC<UserViewProps> = ({
         const isFirstUpload = !userPhoto;
         setUserPhoto(base64);
         
-        // Reset states for a fresh upload
         setGenStates(prev => {
           const newState = { ...prev };
           Object.keys(newState).forEach(id => {
@@ -121,32 +102,9 @@ const UserView: React.FC<UserViewProps> = ({
           analytics.track('Lead', { method: 'upload' });
         }
         storageService.logActivity('photo_uploaded', { size: file.size, type: file.type });
-
-        // Trigger automatic generation of configured Magic Previews
-        triggerAutoGens(base64);
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const triggerAutoGens = (photo: string) => {
-    if (!settings?.magicPreviews || settings.magicPreviews.length === 0) return;
-
-    // Convert MagicPreviewConfigs to temporary StyleTemplates for rendering
-    const previewStyles: StyleTemplate[] = settings.magicPreviews.map((m: MagicPreviewConfig) => ({
-      id: m.id,
-      name: m.name,
-      description: m.description,
-      prompt: m.prompt,
-      imageUrl: photo 
-    }));
-
-    setQuickGenItems(previewStyles);
-    setShowQuickPreviews(true);
-
-    previewStyles.forEach(style => {
-      handleGenerate(style, photo);
-    });
   };
 
   const handleGenerate = async (style: StyleTemplate, overridePhoto?: string) => {
@@ -183,11 +141,9 @@ const UserView: React.FC<UserViewProps> = ({
   const handleClaimFree = (styleId: string) => {
     if (freePhotoClaimed) return;
     
-    // 1. Mark usage
     usageService.markFreePhotoAsUsed();
     setFreePhotoClaimed(true);
     
-    // 2. Set current image to high res state locally
     setGenStates(prev => {
       const current = prev[styleId];
       if (current && current.result) {
@@ -199,7 +155,6 @@ const UserView: React.FC<UserViewProps> = ({
       return prev;
     });
 
-    // 3. Trigger immediate download
     handleDownload(styleId);
 
     analytics.track('ClaimFree', { style_id: styleId });
@@ -208,7 +163,7 @@ const UserView: React.FC<UserViewProps> = ({
 
   const handleAddToCart = (styleId: string) => {
     const state = genStates[styleId];
-    const style = styles.find(s => s.id === styleId) || quickGenItems.find(s => s.id === styleId);
+    const style = styles.find(s => s.id === styleId);
     if (!state.result || !style) return;
 
     if (cart.find(item => item.id === styleId)) {
@@ -387,7 +342,7 @@ const UserView: React.FC<UserViewProps> = ({
               </div>
             ) : (
               !state.isLoading && (
-                <button onClick={() => handleGenerate(s)} className="w-full py-5 bg-rose-600 text-white rounded-[1.5rem] font-black text-[12px] uppercase tracking-widest shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all flex items-center justify-center gap-3 group/btn active:scale-95 border-b-4 border-rose-800">
+                <button onClick={() => handleGenerate(s)} className="w-full py-5 bg-rose-600 text-white rounded-[1.5rem] font-black text-12px] uppercase tracking-widest shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all flex items-center justify-center gap-3 group/btn active:scale-95 border-b-4 border-rose-800">
                   <span>Transform My Photo ✨</span>
                 </button>
               )
@@ -414,7 +369,6 @@ const UserView: React.FC<UserViewProps> = ({
 
   return (
     <div className="space-y-8 sm:space-y-12 pb-24 max-w-7xl mx-auto px-4">
-      {/* Tutorial Video Section */}
       <section className="bg-white rounded-[2.5rem] p-6 sm:p-10 shadow-2xl border border-rose-100 text-center space-y-8 overflow-hidden relative">
         <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full blur-3xl -mr-10 -mt-10"></div>
         <div className="relative space-y-4">
@@ -424,7 +378,10 @@ const UserView: React.FC<UserViewProps> = ({
           </div>
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div className="relative mx-auto w-full max-w-[280px] sm:max-w-xs aspect-[9/16] bg-slate-900 rounded-[2.5rem] p-3 shadow-2xl ring-8 ring-rose-50 overflow-hidden">
-              <video autoPlay muted playsInline loop controls className="w-full h-full object-contain rounded-2xl">
+              <video 
+                autoPlay muted playsInline loop controls 
+                className="w-full h-full object-contain rounded-2xl"
+              >
                 <source src="https://ghdwufjkpjuidyfsgkde.supabase.co/storage/v1/object/public/media/howto.mp4" type="video/mp4" />
               </video>
             </div>
@@ -448,7 +405,6 @@ const UserView: React.FC<UserViewProps> = ({
         </div>
       </section>
 
-      {/* Hero Section */}
       <section className="relative overflow-hidden bg-white rounded-[2.5rem] md:rounded-[4rem] p-6 md:p-12 shadow-2xl border border-rose-100 text-center">
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-rose-50 rounded-full blur-3xl opacity-60" />
         <div className="relative max-w-4xl mx-auto flex flex-col items-center gap-6 sm:gap-8">
@@ -488,27 +444,10 @@ const UserView: React.FC<UserViewProps> = ({
         </div>
       </section>
 
-      {/* Automatic Previews Section (Initially Hidden) */}
-      {showQuickPreviews && (
-        <section className="space-y-8 animate-in slide-in-from-bottom-10 duration-1000">
-          <div className="flex flex-col items-center text-center gap-2">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Magic Previews ✨</h2>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Your photo is being transformed into these styles</p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {quickGenItems.map(style => renderStyleCard(style))}
-          </div>
-          
-          <div className="h-px w-full bg-rose-100 my-12" />
-        </section>
-      )}
-
-      {/* Main Style Grid */}
       <section className="space-y-8">
         <div className="flex flex-col items-center text-center gap-2">
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Explore More Styles</h2>
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Discover hundreds of artistic variations</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Explore Styles</h2>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Discover artistic variations</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-12">
           {styles.map((s) => renderStyleCard(s))}
