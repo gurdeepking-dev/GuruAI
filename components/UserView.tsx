@@ -89,7 +89,6 @@ const UserView: React.FC<UserViewProps> = ({
         const isFirstUpload = !userPhoto;
         setUserPhoto(base64);
         
-        // Reset states
         setGenStates(prev => {
           const newState = { ...prev };
           Object.keys(newState).forEach(id => {
@@ -103,7 +102,6 @@ const UserView: React.FC<UserViewProps> = ({
         }
         storageService.logActivity('photo_uploaded', { size: file.size, type: file.type });
 
-        // Selective Auto-generation based on style templates
         styles.forEach(s => {
           if (s.autoGenerate) {
             handleGenerate(s, base64);
@@ -182,7 +180,7 @@ const UserView: React.FC<UserViewProps> = ({
     if (!state.result) return;
     const link = document.createElement('a');
     link.href = state.result;
-    link.download = `photo-${styleId}.png`;
+    link.download = `my-art-${styleId}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -206,7 +204,7 @@ const UserView: React.FC<UserViewProps> = ({
     });
     setCart([]);
     setShowCheckout(false);
-    alert("Payment successful! You can now download your HD photos.");
+    alert("Wonderful! Your payment is done. Now you can download your beautiful art.");
   };
 
   const renderStyleCard = (s: StyleTemplate) => {
@@ -224,7 +222,7 @@ const UserView: React.FC<UserViewProps> = ({
           {state.isLoading ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center gap-4 bg-white/60 backdrop-blur-md z-30">
               <div className="w-12 h-12 border-4 border-rose-500 border-t-rose-100 rounded-full animate-spin" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 animate-pulse">AI is working...</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 animate-pulse">Creating Magic...</p>
             </div>
           ) : state.result ? (
             <div className="w-full h-full relative z-20 animate-in zoom-in-95 duration-700 flex items-center justify-center overflow-hidden" onContextMenu={(e) => !state.isHighRes && e.preventDefault()}>
@@ -251,16 +249,16 @@ const UserView: React.FC<UserViewProps> = ({
              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">{s.description}</p>
              {state.result && (
               <div className="space-y-2">
-                  <label className="text-[9px] font-black text-rose-400 uppercase tracking-widest ml-1 block">Adjust (Optional)</label>
+                  <label className="text-[9px] font-black text-rose-400 uppercase tracking-widest ml-1 block">Change anything? (Optional)</label>
                   <div className="flex gap-2">
                       <input 
                           type="text" value={state.refinement}
                           onChange={(e) => setGenStates(prev => ({...prev, [s.id]: {...prev[s.id], refinement: e.target.value}}))}
-                          placeholder="Example: more blue, smiling..."
+                          placeholder="Ex: make it blue, add a smile..."
                           className="flex-grow px-4 py-2 rounded-xl bg-white border-2 border-rose-100 text-[11px] font-semibold outline-none focus:border-rose-300"
                           onKeyPress={(e) => e.key === 'Enter' && handleGenerate(s)}
                       />
-                      <button onClick={() => handleGenerate(s)} className="px-4 py-2 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase">Re-Run</button>
+                      <button onClick={() => handleGenerate(s)} className="px-4 py-2 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase">Redo</button>
                   </div>
               </div>
              )}
@@ -271,18 +269,18 @@ const UserView: React.FC<UserViewProps> = ({
               <div className="flex flex-col gap-3">
                 {state.isHighRes ? (
                   <button onClick={() => handleDownload(s.id)} className="w-full py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95">
-                    Download HD Image 📸
+                    Download My Art 📸
                   </button>
                 ) : (
                   <>
                     {!freePhotoClaimed ? (
                       <button onClick={() => handleClaimFree(s.id)} className="w-full py-4 bg-rose-600 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-xl border-b-4 border-rose-800 active:scale-95">
-                        Get your 1 free photo 🎁
+                        Get 1 photo for free 🎁
                       </button>
                     ) : (
                       <div className="grid grid-cols-2 gap-3">
                         <button onClick={() => handleAddToCart(s.id)} className="py-3 border-2 border-rose-100 bg-white rounded-[1.25rem] font-black text-[10px] text-rose-400 uppercase tracking-widest hover:bg-rose-50 transition-all">Save</button>
-                        <button onClick={() => { handleAddToCart(s.id); setShowCheckout(true); }} className="py-3 bg-slate-900 text-white rounded-[1.25rem] font-black text-[10px] uppercase shadow-xl hover:bg-black active:scale-95">Buy HD</button>
+                        <button onClick={() => { handleAddToCart(s.id); setShowCheckout(true); }} className="py-3 bg-slate-900 text-white rounded-[1.25rem] font-black text-[10px] uppercase shadow-xl hover:bg-black active:scale-95">Get Clear HD</button>
                       </div>
                     )}
                   </>
@@ -291,7 +289,7 @@ const UserView: React.FC<UserViewProps> = ({
             ) : (
               !state.isLoading && (
                 <button onClick={() => handleGenerate(s)} className="w-full py-5 bg-rose-600 text-white rounded-[1.5rem] font-black text-[12px] uppercase tracking-widest shadow-xl hover:bg-rose-700 active:scale-95 border-b-4 border-rose-800">
-                  Transform My Photo ✨
+                  Create My Art ✨
                 </button>
               )
             )}
@@ -302,7 +300,7 @@ const UserView: React.FC<UserViewProps> = ({
     );
   };
 
-  if (!settings) return <div className="py-20 flex flex-col items-center justify-center gap-4 text-rose-400"><div className="w-10 h-10 border-4 border-rose-100 border-t-rose-500 rounded-full animate-spin" /><p className="font-bold">Opening store...</p></div>;
+  if (!settings) return <div className="py-20 flex flex-col items-center justify-center gap-4 text-rose-400"><div className="w-10 h-10 border-4 border-rose-100 border-t-rose-500 rounded-full animate-spin" /><p className="font-bold">Opening your studio...</p></div>;
 
   const currencySymbol = storageService.getCurrencySymbol(settings.payment.currency);
 
@@ -313,7 +311,7 @@ const UserView: React.FC<UserViewProps> = ({
         <div className="relative space-y-4">
           <div className="flex items-center justify-center gap-2">
             <span className="text-2xl animate-bounce">📽️</span>
-            <h3 className="text-lg sm:text-xl font-black text-slate-800 tracking-tight uppercase serif italic">Watch tutorial to get started</h3>
+            <h3 className="text-lg sm:text-xl font-black text-slate-800 tracking-tight uppercase serif italic">See how it works</h3>
           </div>
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div className="relative mx-auto w-full max-w-[280px] sm:max-w-xs aspect-[9/16] bg-slate-900 rounded-[2.5rem] p-3 shadow-2xl ring-8 ring-rose-50 overflow-hidden">
@@ -326,8 +324,8 @@ const UserView: React.FC<UserViewProps> = ({
                 <div key={num} className="flex gap-4 items-start group">
                   <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black flex-shrink-0 group-hover:scale-110 transition-transform shadow-sm">{num}</div>
                   <div>
-                    <h4 className="font-black text-slate-800 uppercase text-sm">{num === 1 ? 'Upload Photo' : num === 2 ? 'Choose Style' : 'Save HD'}</h4>
-                    <p className="text-slate-500 text-xs font-medium">{num === 1 ? 'Upload your clear face photo.' : num === 2 ? 'Select any style below to start AI magic.' : 'Claim your free photo or buy more in high detail!'}</p>
+                    <h4 className="font-black text-slate-800 uppercase text-sm">{num === 1 ? 'Add Your Photo' : num === 2 ? 'Choose Your Style' : 'Get Your Art'}</h4>
+                    <p className="text-slate-500 text-xs font-medium">{num === 1 ? 'Upload a clear photo of your face.' : num === 2 ? 'Pick a style and watch the magic.' : 'Save your free photo or buy more beautiful art!'}</p>
                   </div>
                 </div>
               ))}
@@ -341,18 +339,18 @@ const UserView: React.FC<UserViewProps> = ({
         <div className="relative max-w-4xl mx-auto flex flex-col items-center gap-6 sm:gap-8">
           <div className="relative" onClick={() => uploadInputRef.current?.click()}>
             <div className={`w-36 h-36 md:w-52 md:h-52 rounded-[2.5rem] flex items-center justify-center transition-all duration-500 shadow-2xl cursor-pointer hover:scale-[1.03] active:scale-95 ${userPhoto ? 'bg-white ring-8 ring-rose-50' : 'bg-gradient-to-br from-rose-500 to-pink-500 shadow-rose-200'}`}>
-              {userPhoto ? <img src={userPhoto} className="w-full h-full object-cover rounded-[2.5rem]" alt="Your Photo" /> : <div className="flex flex-col items-center gap-2"><span className="text-white text-3xl sm:text-4xl">📸</span><span className="text-[10px] sm:text-[11px] font-black text-rose-100 uppercase">Upload Photo</span></div>}
+              {userPhoto ? <img src={userPhoto} className="w-full h-full object-cover rounded-[2.5rem]" alt="Your Photo" /> : <div className="flex flex-col items-center gap-2"><span className="text-white text-3xl sm:text-4xl">📸</span><span className="text-[10px] sm:text-[11px] font-black text-rose-100 uppercase">Add Your Photo</span></div>}
             </div>
           </div>
           
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 mb-1">
               <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
-              <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Get 1 Free HD Photo 🎁</span>
+              <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Get 1 Free Photo 🎁</span>
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tighter serif leading-tight">AI Art <span className="text-rose-500 italic">Studio</span></h1>
             <p className="text-sm md:text-base text-slate-400 font-semibold max-w-lg mx-auto leading-relaxed px-4">
-              Transform your look with premium AI styles. Every user gets 1 free photo. HD styles for only <span className="text-slate-900 font-bold">{currencySymbol}{settings.payment.photoPrice}</span>.
+              Make your photos look beautiful with AI. Get your first photo for free. Clear HD art for just <span className="text-slate-900 font-bold">{currencySymbol}{settings.payment.photoPrice}</span>.
             </p>
           </div>
 
@@ -366,8 +364,8 @@ const UserView: React.FC<UserViewProps> = ({
 
       <section className="space-y-8">
         <div className="flex flex-col items-center text-center gap-2">
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Choose Your Style</h2>
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Select to generate your transformation</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Pick Your Favorite Look</h2>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Select one to start the magic</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-12">
           {styles.map((s) => renderStyleCard(s))}

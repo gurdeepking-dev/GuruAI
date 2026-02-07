@@ -14,19 +14,6 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
-        
-        @keyframes float {
-            0% { transform: translateY(0px) rotate(0deg); opacity: 0; }
-            50% { opacity: 0.8; }
-            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
-        }
-        .heart-particle {
-            position: fixed;
-            pointer-events: none;
-            z-index: 0;
-            color: #fb7185;
-            animation: float 15s linear infinite;
-        }
     </style>
     <script>
       window.process = {
@@ -56,22 +43,8 @@
 <link rel="stylesheet" href="/index.css">
 </head>
 <body class="bg-[#fff1f2] text-slate-900 overflow-x-hidden">
-    <div id="heart-container" class="fixed inset-0 pointer-events-none overflow-hidden select-none"></div>
-    <script>
-        const container = document.getElementById('heart-container');
-        for(let i=0; i<20; i++) {
-            const heart = document.createElement('div');
-            heart.className = 'heart-particle';
-            heart.innerHTML = '✨';
-            heart.style.left = Math.random() * 100 + 'vw';
-            heart.style.fontSize = (Math.random() * 20 + 10) + 'px';
-            heart.style.animationDelay = (Math.random() * 15) + 's';
-            heart.style.opacity = Math.random() * 0.5;
-            container.appendChild(heart);
-        }
-    </script>
     <div id="root"></div>
-    <script type="module" src="index.js"></script>
+    <script type="module" src="index.tsx"></script>
 <script type="module" src="/index.tsx"></script>
 </body>
 </html>

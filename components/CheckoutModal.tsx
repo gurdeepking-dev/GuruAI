@@ -46,16 +46,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
         setCouponError(null);
       } else {
         setAppliedCoupon(null);
-        setCouponError("Invalid coupon code");
+        setCouponError("This code does not work.");
       }
     } catch (err) {
-      setCouponError("Could not validate coupon");
+      setCouponError("Could not check code.");
     }
   };
 
   const handlePay = async () => {
     if (!email) {
-      setError("Please type your email.");
+      setError("Please enter your email.");
       return;
     }
 
@@ -63,14 +63,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
       setIsProcessing(true);
       setError(null);
 
-      // Handle 100% discount / Free checkout bypass
       if (total <= 0) {
         try {
-          // Simulate a short delay for UX
           await new Promise(resolve => setTimeout(resolve, 800));
           onComplete(`coupon_free_${Date.now()}`, cart.map(i => i.id));
         } catch (err) {
-          setError("Failed to process free checkout.");
+          setError("Failed to get free art.");
           setIsProcessing(false);
         }
         return;
@@ -80,13 +78,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
       const keyId = settings?.payment?.keyId || process.env.RAZORPAY_KEY_ID;
 
       if (!keyId) {
-        setError("Something is wrong with payment. Contact support.");
+        setError("Payment system error. Please tell us.");
         setIsProcessing(false);
         return;
       }
 
       if (!(window as any).Razorpay) {
-        throw new Error("Internet is slow. Try again.");
+        throw new Error("Page not ready. Refresh and try again.");
       }
 
       const options = {
@@ -94,12 +92,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
         amount: Math.round(total * 100),
         currency: settings?.payment?.currency || "INR",
         name: "chatgpt digital store",
-        description: `Get ${cart.length} High-Quality Photos`,
+        description: `Get ${cart.length} Beautiful HD Photos`,
         handler: function (response: any) {
           try {
             onComplete(response.razorpay_payment_id, cart.map(i => i.id));
           } catch (callbackErr: any) {
-             alert("Paid but photos not ready. Please contact support.");
+             alert("We got your payment but something went wrong. Email us!");
           }
         },
         prefill: { email },
@@ -114,13 +112,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
       const rzp = new (window as any).Razorpay(options);
       
       rzp.on('payment.failed', function (response: any) {
-        setError("Payment failed. Try again.");
+        setError("Payment failed. Please try again.");
         setIsProcessing(false);
       });
 
       rzp.open();
     } catch (err: any) {
-      setError("Something went wrong. Try again.");
+      setError("Something went wrong. Try once more.");
       setIsProcessing(false);
     }
   };
@@ -133,8 +131,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
       <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-10 space-y-6 animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto scrollbar-hide">
         <div className="flex justify-between items-start">
           <div className="space-y-1">
-            <h4 className="text-3xl font-black text-slate-900 tracking-tighter">Final Step</h4>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Get your final photos</p>
+            <h4 className="text-3xl font-black text-slate-900 tracking-tighter">Get Your Art</h4>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Final step to get HD photos</p>
           </div>
           <button onClick={onClose} className="p-2 text-slate-300 hover:text-slate-600 transition-colors text-2xl font-bold">×</button>
         </div>
@@ -157,16 +155,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
               )}
             </div>
           )) : (
-            <p className="text-center py-8 text-slate-400 italic text-sm">Cart is empty</p>
+            <p className="text-center py-8 text-slate-400 italic text-sm">Your basket is empty</p>
           )}
         </div>
 
-        {/* Totals & Coupon Section */}
         <div className="space-y-4 pt-2">
           <div className="flex items-center gap-2">
             <input 
               type="text" 
-              placeholder="Apply Coupon Code"
+              placeholder="Have a coupon code?"
               className="flex-grow px-4 py-3 rounded-xl bg-slate-50 border border-slate-100 text-xs font-bold uppercase tracking-widest outline-none focus:ring-2 focus:ring-rose-500"
               value={couponCode}
               onChange={e => setCouponCode(e.target.value)}
@@ -176,14 +173,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
               onClick={handleApplyCoupon}
               className="px-6 py-3 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95"
             >
-              Apply
+              Use
             </button>
           </div>
           {couponError && <p className="text-[10px] font-bold text-red-500 ml-1">{couponError}</p>}
           {appliedCoupon && (
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-100">
               <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">
-                Code Applied: {appliedCoupon.code}
+                Discount applied!
               </p>
               <button onClick={() => {setAppliedCoupon(null); setCouponCode('');}} className="text-green-600 text-xs font-black">✕</button>
             </div>
@@ -191,7 +188,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
 
           <div className="space-y-2 border-t border-slate-50 pt-4">
              <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <span>Subtotal</span>
+                <span>Price</span>
                 <span>{storageService.getCurrencySymbol()} {subtotal.toFixed(2)}</span>
              </div>
              {discount > 0 && (
@@ -209,10 +206,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
 
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Your Email (for photos)</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Your Email (to send photos)</label>
             <input 
               type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder="name@email.com"
               disabled={isProcessing}
               className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:ring-2 focus:ring-rose-500 font-medium transition-all" 
             />
@@ -225,12 +222,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, cart, on
           disabled={cart.length === 0 || isProcessing}
           className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-black transition-all disabled:opacity-50 active:scale-95 flex items-center justify-center gap-3"
         >
-          {isProcessing ? "Wait..." : (total <= 0 ? "Get it for FREE ✨" : `Pay ${storageService.getCurrencySymbol()} ${total.toFixed(2)}`)}
+          {isProcessing ? "Wait a moment..." : (total <= 0 ? "Get it for FREE ✨" : `Pay ${storageService.getCurrencySymbol()} ${total.toFixed(2)}`)}
         </button>
         
         <div className="flex items-center justify-center gap-2">
            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            Safe & Secure Payment
+            Safe & Easy Payment
           </p>
         </div>
       </div>
