@@ -1,5 +1,5 @@
 
-import { StyleTemplate, AdminSettings, TransactionRecord, ApiKeyRecord, MagicPreviewConfig, Coupon } from '../types';
+import { StyleTemplate, AdminSettings, TransactionRecord, ApiKeyRecord, Coupon } from '../types';
 import { logger } from './logger';
 import { supabase } from './supabase';
 import { imageStorage } from './imageStorage';
@@ -14,37 +14,24 @@ export const DEFAULT_STYLES: StyleTemplate[] = [
     name: 'Eternal Romance', 
     imageUrl: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500&q=75&auto=format', 
     prompt: 'A romantic fine art photo with a soft dreamy glow, surrounded by floating red and pink rose petals, elegant lighting, warm color palette, professional photography, ethereal atmosphere. Preserve facial identity perfectly.', 
-    description: 'Perfect for Valentine gifts.' 
-  },
-  { 
-    id: 'viking-sikh', 
-    name: 'Sikh Warrior Viking', 
-    imageUrl: 'https://images.unsplash.com/photo-1519074063912-ad2dbf50b16d?w=500&q=75&auto=format', 
-    prompt: 'A majestic Sikh warrior in Viking chieftain attire, wearing a traditional turban with ceremonial accents, thick beard, heavy fur cloak with silver brooches, leather armor, standing in a snowy misty forest, hyper-realistic, historical epic cinematic style.', 
-    description: 'Norse-Sikh fusion warrior.' 
-  },
-  { id: '1', name: 'Royal Indian Wedding', imageUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=500&q=75&auto=format', prompt: 'A magnificent Indian wedding photo. Traditional royal attire with intricate gold embroidery, heavy jewelry, and a palace background. Warm cinematic lighting.', description: 'Traditional elegance.' },
-  { id: '2', name: 'Cyberpunk Neon', imageUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=500&q=75&auto=format', prompt: 'Cyberpunk 2077 style. Neon glowing accents, futuristic techwear, rainy night city background with teal and pink lighting. High-tech aesthetic.', description: 'Futuristic sci-fi.' },
-  { id: '3', name: 'Pixar Animation', imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&q=75&auto=format', prompt: '3D Disney Pixar animation style. Big expressive eyes, smooth skin textures, stylized features, vibrant and soft cinematic lighting.', description: '3D Animated character.' },
-  { id: '4', name: 'Greek Marble Statue', imageUrl: 'https://images.unsplash.com/photo-1549887534-1541e9326642?w=500&q=75&auto=format', prompt: 'Classic white marble Greek sculpture. Intricate carved details, smooth stone texture, museum gallery lighting, timeless museum aesthetic.', description: 'Ancient masterpiece.' },
-  { id: '10', name: 'Studio Ghibli Anime', imageUrl: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=500&q=75&auto=format', prompt: 'Hand-painted Studio Ghibli anime style. Soft watercolor textures, whimsical atmosphere, lush green background, gentle lighting.', description: 'Japanese animation.' }
+    description: 'Perfect for Valentine gifts.',
+    displayOrder: 0,
+    autoGenerate: true
+  }
 ];
-
-const DEFAULT_MAGIC_PREVIEWS: MagicPreviewConfig[] = []; // Removed default auto-previews
 
 export const DEFAULT_ADMIN: AdminSettings = {
   username: 'admin',
   passwordHash: 'admin123',
   geminiApiKeys: [],
-  magicPreviews: DEFAULT_MAGIC_PREVIEWS,
   coupons: [],
   payment: {
     gateway: 'Razorpay',
-    keyId: process.env.RAZORPAY_KEY_ID || '',
-    keySecret: process.env.RAZORPAY_KEY_SECRET || '',
-    currency: process.env.DEFAULT_CURRENCY || 'INR',
+    keyId: '',
+    keySecret: '',
+    currency: 'INR',
     enabled: true,
-    photoPrice: parseFloat(process.env.PHOTO_PRICE || '8')
+    photoPrice: 8
   },
   tracking: {
     metaPixelId: ''
@@ -67,21 +54,35 @@ export const storageService = {
 
   async fetchStylesFromDB(): Promise<StyleTemplate[]> {
     try {
-      const { data, error } = await supabase.from('styles').select('*').order('created_at', { ascending: true });
-      if (error) throw error;
+      // Attempt to fetch with the new displayOrder column
+      const { data, error } = await supabase
+        .from('styles')
+        .select('*')
+        .order('displayOrder', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true });
+        
+      if (error) {
+        // If column missing (Error 42703), fallback to standard ordering
+        if (error.code === '42703') {
+          logger.warn('Storage', 'displayOrder column missing, falling back to basic sort');
+          const fallback = await supabase.from('styles').select('*').order('created_at', { ascending: true });
+          if (fallback.error) throw fallback.error;
+          return fallback.data || [];
+        }
+        throw error;
+      }
       
       if ((!data || data.length === 0) && !localStorage.getItem(INITIALIZED_KEY)) {
         localStorage.setItem(INITIALIZED_KEY, 'true');
-        await Promise.all(DEFAULT_STYLES.map(s => this.saveStyle(s)));
+        await Promise.all(DEFAULT_STYLES.map((s, idx) => this.saveStyle({...s, displayOrder: idx})));
         return DEFAULT_STYLES;
       }
 
       const styles = data || [];
-      if (styles.length > 0) {
-        localStorage.setItem(STYLES_CACHE_KEY, JSON.stringify(styles));
-      }
+      localStorage.setItem(STYLES_CACHE_KEY, JSON.stringify(styles));
       return styles;
     } catch (err) {
+      logger.error('Storage', 'Failed to fetch styles from DB', err);
       return DEFAULT_STYLES;
     }
   },
@@ -91,28 +92,18 @@ export const storageService = {
     const { error } = await supabase.from('styles').upsert({
       ...style,
       imageUrl: finalImageUrl,
-      created_at: style.created_at || new Date().toISOString()
+      created_at: style.created_at || new Date().toISOString(),
+      displayOrder: style.displayOrder ?? 999,
+      autoGenerate: style.autoGenerate ?? false
     });
     if (error) throw error;
     localStorage.removeItem(STYLES_CACHE_KEY);
   },
 
   async deleteStyle(id: string): Promise<void> {
-    try {
-      const response = await supabase.from('styles').delete().eq('id', id);
-      if (response.error) throw response.error;
-      localStorage.removeItem(STYLES_CACHE_KEY);
-    } catch (err: any) {
-      throw err;
-    }
-  },
-
-  async importStyles(stylesJson: string): Promise<void> {
-    const parsed = JSON.parse(stylesJson);
-    if (Array.isArray(parsed)) {
-      await Promise.all(parsed.map(s => this.saveStyle(s)));
-      localStorage.removeItem(STYLES_CACHE_KEY);
-    }
+    const { error } = await supabase.from('styles').delete().eq('id', id);
+    if (error) throw error;
+    localStorage.removeItem(STYLES_CACHE_KEY);
   },
 
   async exportStyles(): Promise<string> {
@@ -120,44 +111,69 @@ export const storageService = {
     return JSON.stringify(styles, null, 2);
   },
 
+  async importStyles(json: string): Promise<void> {
+    try {
+      const styles = JSON.parse(json) as StyleTemplate[];
+      if (!Array.isArray(styles)) throw new Error('Invalid backup format');
+      for (const style of styles) {
+        await this.saveStyle(style);
+      }
+      localStorage.removeItem(STYLES_CACHE_KEY);
+    } catch (err) {
+      logger.error('Storage', 'Failed to import styles', err);
+      throw err;
+    }
+  },
+
   async getAdminSettings(): Promise<AdminSettings> {
     try {
-      const { data, error } = await supabase.from('settings').select('config').eq('id', 'global').single();
+      const { data, error } = await supabase.from('settings').select('config').eq('id', 'global').maybeSingle();
       
-      if (error || !data) {
+      if (error) {
+        logger.error('Storage', 'Error fetching settings from Supabase', error);
+        return DEFAULT_ADMIN;
+      }
+      
+      if (!data) {
+        logger.info('Storage', 'No settings found in Supabase, creating initial default');
         await this.saveAdminSettings(DEFAULT_ADMIN);
         return DEFAULT_ADMIN;
       }
       
-      const settings = data.config as AdminSettings;
+      const settingsFromDb = data.config as AdminSettings;
       
-      if (!settings.tracking) settings.tracking = { metaPixelId: '' };
-      if (!settings.magicPreviews) settings.magicPreviews = DEFAULT_MAGIC_PREVIEWS;
-      if (!settings.coupons) settings.coupons = [];
-
-      if (settings.geminiApiKey && (!settings.geminiApiKeys || settings.geminiApiKeys.length === 0)) {
-        settings.geminiApiKeys = [{
-          id: 'legacy-key',
-          key: settings.geminiApiKey,
-          label: 'Default Key',
-          status: 'active',
-          addedAt: Date.now()
-        }];
-      }
+      // CRITICAL: Deep merge to prevent overwriting keys with defaults if they are missing from the DB object
+      const merged: AdminSettings = {
+        ...DEFAULT_ADMIN,
+        ...settingsFromDb,
+        payment: { 
+          ...DEFAULT_ADMIN.payment, 
+          ...(settingsFromDb.payment || {}) 
+        },
+        tracking: { 
+          ...DEFAULT_ADMIN.tracking, 
+          ...(settingsFromDb.tracking || {}) 
+        },
+        geminiApiKeys: settingsFromDb.geminiApiKeys || [],
+        coupons: settingsFromDb.coupons || []
+      };
       
-      return settings;
+      return merged;
     } catch (err) {
+      logger.error('Storage', 'Unexpected error in getAdminSettings', err);
       return DEFAULT_ADMIN;
     }
   },
 
   async saveAdminSettings(settings: AdminSettings): Promise<void> {
+    // Safety check: Don't save if settings look like an accidental reset (e.g. empty key when we shouldn't have one)
     const { error } = await supabase.from('settings').upsert({
       id: 'global',
       config: settings
     });
+    
     if (error) {
-      logger.error('Storage', 'Failed to save settings', error);
+      logger.error('Storage', 'Failed to save settings to Supabase', error);
       throw error;
     }
   },
@@ -186,7 +202,6 @@ export const storageService = {
   async logActivity(eventName: string, eventData: any = {}): Promise<void> {
     const sessionId = localStorage.getItem('styleswap_session_id') || Math.random().toString(36).substring(7);
     localStorage.setItem('styleswap_session_id', sessionId);
-
     try {
       await supabase.from('user_activities').insert({
         event_name: eventName,
@@ -195,7 +210,7 @@ export const storageService = {
         created_at: new Date().toISOString()
       });
     } catch (err) {
-      console.debug('Activity logging failed', err);
+      // Fail silently for background logging
     }
   },
 
