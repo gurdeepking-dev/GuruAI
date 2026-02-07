@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleTemplate, AdminSettings, ApiKeyRecord, MagicPreviewConfig, Coupon } from '../types';
+import { StyleTemplate, AdminSettings, ApiKeyRecord, Coupon } from '../types';
 import { storageService } from '../services/storage';
 import { logger } from '../services/logger';
 import ActivityLogView from './ActivityLogView';
@@ -12,12 +12,20 @@ const AdminView: React.FC = () => {
   
   const [styles, setStyles] = useState<StyleTemplate[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(null);
-  const [activeTab, setActiveTab] = useState<'styles' | 'magic' | 'keys' | 'payment' | 'tracking' | 'activities' | 'security' | 'coupons'>('styles');
+  const [activeTab, setActiveTab] = useState<'styles' | 'keys' | 'payment' | 'tracking' | 'activities' | 'security' | 'coupons'>('styles');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
-  const [styleForm, setStyleForm] = useState({ id: '', name: '', prompt: '', description: '', image: '' });
+  const [styleForm, setStyleForm] = useState({ 
+    id: '', 
+    name: '', 
+    prompt: '', 
+    description: '', 
+    image: '', 
+    autoGenerate: false,
+    displayOrder: 0
+  });
   const [keyForm, setKeyForm] = useState({ label: '', key: '' });
   const [securityForm, setSecurityForm] = useState({ newUsername: '', currentPassword: '', newPassword: '' });
   const [couponForm, setCouponForm] = useState({ code: '', type: 'percentage' as 'percentage' | 'fixed', value: 0 });
@@ -105,13 +113,15 @@ const AdminView: React.FC = () => {
       name: styleForm.name,
       prompt: styleForm.prompt,
       description: styleForm.description,
-      imageUrl: styleForm.image
+      imageUrl: styleForm.image,
+      autoGenerate: styleForm.autoGenerate,
+      displayOrder: styleForm.displayOrder
     };
 
     try {
       await storageService.saveStyle(newStyle);
       await loadData();
-      setStyleForm({ id: '', name: '', prompt: '', description: '', image: '' });
+      setStyleForm({ id: '', name: '', prompt: '', description: '', image: '', autoGenerate: false, displayOrder: 0 });
       showNotification('Style Template Saved');
     } catch (err) {
       alert("Failed to save style.");
@@ -214,17 +224,6 @@ const AdminView: React.FC = () => {
     }
   };
 
-  const handleUpdateMagicPreviews = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adminSettings) return;
-    try {
-      await storageService.saveAdminSettings(adminSettings);
-      showNotification('Magic Previews Saved');
-    } catch (err) {
-      alert("Failed to update Magic Previews.");
-    }
-  };
-
   const showNotification = (msg: string) => {
     setSaveStatus(msg);
     setTimeout(() => setSaveStatus(null), 3000);
@@ -304,13 +303,13 @@ const AdminView: React.FC = () => {
       </div>
 
       <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-fit mx-auto overflow-x-auto">
-        {['styles', 'magic', 'keys', 'coupons', 'payment', 'tracking', 'activities', 'security'].map((t) => (
+        {['styles', 'keys', 'coupons', 'payment', 'tracking', 'activities', 'security'].map((t) => (
           <button 
             key={t}
             onClick={() => setActiveTab(t as any)}
             className={`px-8 py-3 rounded-xl text-xs font-black transition-all uppercase tracking-widest whitespace-nowrap ${activeTab === t ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
           >
-            {t === 'keys' ? 'API Pool' : t === 'tracking' ? 'Analytics' : t === 'activities' ? 'Logs' : t === 'magic' ? 'Magic Previews' : t === 'coupons' ? 'Coupons' : t}
+            {t === 'keys' ? 'API Pool' : t === 'tracking' ? 'Analytics' : t === 'activities' ? 'Logs' : t === 'coupons' ? 'Coupons' : t}
           </button>
         ))}
       </div>
@@ -338,6 +337,30 @@ const AdminView: React.FC = () => {
                 className="w-full px-5 py-3 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-rose-500 h-32 resize-none font-medium text-sm"
                 placeholder="AI Prompt"
               />
+              <div className="grid grid-cols-2 gap-3">
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Order</label>
+                    <input 
+                      type="number" 
+                      value={styleForm.displayOrder}
+                      onChange={e => setStyleForm({...styleForm, displayOrder: parseInt(e.target.value) || 0})}
+                      className="w-full px-5 py-3 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-rose-500 font-bold"
+                      placeholder="0"
+                    />
+                 </div>
+                 <div className="flex flex-col justify-end gap-1 mb-1">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="auto-gen-check" 
+                        checked={styleForm.autoGenerate}
+                        onChange={e => setStyleForm({...styleForm, autoGenerate: e.target.checked})}
+                        className="w-5 h-5 accent-rose-500 cursor-pointer"
+                      />
+                      <label htmlFor="auto-gen-check" className="text-[9px] font-black text-slate-600 cursor-pointer uppercase tracking-tighter">Auto-Gen</label>
+                    </div>
+                 </div>
+              </div>
               <input type="file" onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
@@ -363,89 +386,25 @@ const AdminView: React.FC = () => {
           </div>
           <div className="lg:col-span-8 grid sm:grid-cols-2 gap-4">
             {styles.map(s => (
-              <div key={s.id} className="bg-white p-5 rounded-[2rem] border border-slate-100 flex gap-4 hover:shadow-md transition-shadow">
+              <div key={s.id} className="bg-white p-5 rounded-[2rem] border border-slate-100 flex gap-4 hover:shadow-md transition-shadow relative">
+                <div className="absolute top-4 right-4 flex gap-1">
+                  {s.autoGenerate && (
+                    <span className="px-2 py-0.5 bg-rose-50 text-rose-500 text-[8px] font-black uppercase tracking-widest rounded-md border border-rose-100">Auto</span>
+                  )}
+                  <span className="px-2 py-0.5 bg-slate-50 text-slate-400 text-[8px] font-black uppercase tracking-widest rounded-md border border-slate-100">Pos: {s.displayOrder || 0}</span>
+                </div>
                 <img src={s.imageUrl} className="w-20 h-20 rounded-2xl object-cover shadow-sm" alt={s.name} />
                 <div className="flex-grow min-w-0">
-                  <h4 className="font-bold text-slate-800 truncate">{s.name}</h4>
+                  <div className="flex items-start justify-between">
+                    <h4 className="font-bold text-slate-800 truncate pr-16">{s.name}</h4>
+                  </div>
                   <div className="flex gap-4 mt-3">
-                    <button onClick={() => setStyleForm({ id: s.id, name: s.name, prompt: s.prompt, description: s.description, image: s.imageUrl })} className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Edit</button>
+                    <button onClick={() => setStyleForm({ id: s.id, name: s.name, prompt: s.prompt, description: s.description, image: s.imageUrl, autoGenerate: !!s.autoGenerate, displayOrder: s.displayOrder || 0 })} className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Edit</button>
                     <button onClick={() => handleDeleteStyle(s.id)} className="text-[10px] font-black text-red-400 uppercase tracking-widest">Delete</button>
                   </div>
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'magic' && adminSettings && (
-        <div className="max-w-4xl mx-auto space-y-8">
-          <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl space-y-8">
-            <div className="space-y-2">
-              <h3 className="text-2xl font-black text-slate-800 tracking-tighter uppercase">Magic Previews Prompts</h3>
-              <p className="text-xs text-slate-500 font-medium">Configure the 4 prompts that automatically trigger when a user uploads their photo.</p>
-            </div>
-            
-            <form onSubmit={handleUpdateMagicPreviews} className="space-y-10">
-              <div className="grid sm:grid-cols-2 gap-8">
-                {(adminSettings.magicPreviews || []).map((m, index) => (
-                  <div key={m.id} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center font-black text-xs">#{index + 1}</span>
-                      <h4 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Preview Slot {index + 1}</h4>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Preview Name</label>
-                      <input 
-                        type="text" 
-                        value={m.name}
-                        onChange={e => {
-                          const newPreviews = [...(adminSettings.magicPreviews || [])];
-                          newPreviews[index] = { ...newPreviews[index], name: e.target.value };
-                          setAdminSettings({...adminSettings, magicPreviews: newPreviews});
-                        }}
-                        className="w-full px-5 py-3 rounded-xl bg-white border border-slate-100 outline-none focus:ring-2 focus:ring-rose-500 font-bold text-sm"
-                        placeholder="e.g. Cyberpunk Hero"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Short Description</label>
-                      <input 
-                        type="text" 
-                        value={m.description}
-                        onChange={e => {
-                          const newPreviews = [...(adminSettings.magicPreviews || [])];
-                          newPreviews[index] = { ...newPreviews[index], description: e.target.value };
-                          setAdminSettings({...adminSettings, magicPreviews: newPreviews});
-                        }}
-                        className="w-full px-5 py-3 rounded-xl bg-white border border-slate-100 outline-none focus:ring-2 focus:ring-rose-500 font-medium text-xs text-slate-500"
-                        placeholder="e.g. Futuristic Transformation"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">AI Generation Prompt</label>
-                      <textarea 
-                        value={m.prompt}
-                        onChange={e => {
-                          const newPreviews = [...(adminSettings.magicPreviews || [])];
-                          newPreviews[index] = { ...newPreviews[index], prompt: e.target.value };
-                          setAdminSettings({...adminSettings, magicPreviews: newPreviews});
-                        }}
-                        className="w-full px-5 py-3 rounded-xl bg-white border border-slate-100 outline-none focus:ring-2 focus:ring-rose-500 font-medium text-[11px] h-24 resize-none leading-relaxed"
-                        placeholder="Describe the style transformation..."
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <button type="submit" className="w-full py-5 bg-rose-600 text-white rounded-[2rem] font-black shadow-xl hover:bg-rose-700 transition-all active:scale-95 text-sm uppercase tracking-widest">
-                Save Magic Previews Config ✨
-              </button>
-            </form>
           </div>
         </div>
       )}

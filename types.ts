@@ -5,6 +5,8 @@ export interface StyleTemplate {
   imageUrl: string;
   prompt: string;
   description: string;
+  autoGenerate?: boolean;
+  displayOrder?: number;
   created_at?: string;
 }
 
@@ -14,13 +16,6 @@ export interface ApiKeyRecord {
   label: string;
   status: 'active' | 'exhausted' | 'invalid';
   addedAt: number;
-}
-
-export interface MagicPreviewConfig {
-  id: string;
-  name: string;
-  prompt: string;
-  description: string;
 }
 
 export interface Coupon {
@@ -51,7 +46,6 @@ export interface AdminSettings {
   tracking: TrackingConfig;
   geminiApiKey?: string;
   geminiApiKeys?: ApiKeyRecord[];
-  magicPreviews?: MagicPreviewConfig[];
   coupons?: Coupon[];
 }
 

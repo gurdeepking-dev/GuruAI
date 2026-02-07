@@ -1,4 +1,3 @@
-
 import { storageService } from './storage';
 
 declare global {
@@ -13,7 +12,11 @@ export const analytics = {
     const settings = await storageService.getAdminSettings();
     const pixelId = settings.tracking?.metaPixelId;
 
-    if (!pixelId) return;
+    // Strict check for valid pixelId string
+    if (!pixelId || typeof pixelId !== 'string' || pixelId.trim() === '') {
+      logger.debug('Analytics', 'Meta Pixel ID is missing or empty, skipping initialization.');
+      return;
+    }
 
     // Load Meta Pixel Script
     (function(f: any, b: any, e: any, v: any, n?: any, t?: any, s?: any) {
@@ -26,7 +29,7 @@ export const analytics = {
       s.parentNode.insertBefore(t, s);
     })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
 
-    window.fbq('init', pixelId);
+    window.fbq('init', pixelId.trim());
     window.fbq('track', 'PageView');
     
     storageService.logActivity('page_view', { pixel_active: true });
@@ -39,3 +42,4 @@ export const analytics = {
     storageService.logActivity(event.toLowerCase(), params);
   }
 };
+import { logger } from './logger';

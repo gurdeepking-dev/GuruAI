@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleTemplate, CartItem, User, TransactionRecord, MagicPreviewConfig } from '../types';
+import { StyleTemplate, CartItem, User, TransactionRecord } from '../types';
 import { storageService } from '../services/storage';
 import { geminiService } from '../services/geminiService';
 import { usageService } from '../services/usageService';
@@ -40,10 +40,6 @@ const UserView: React.FC<UserViewProps> = ({
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const [freePhotoClaimed, setFreePhotoClaimed] = useState(false);
   const [settings, setSettings] = useState<any>(null);
-  
-  // State for the 4 automatic previews
-  const [showQuickPreviews, setShowQuickPreviews] = useState(false);
-  const [quickGenItems, setQuickGenItems] = useState<StyleTemplate[]>([]);
 
   useEffect(() => {
     logger.info('View', 'UserView mounted');
@@ -79,19 +75,6 @@ const UserView: React.FC<UserViewProps> = ({
         };
       });
 
-      // Initialize states for magic previews
-      if (adminSettings.magicPreviews) {
-        adminSettings.magicPreviews.forEach((m: MagicPreviewConfig) => {
-          initialStates[m.id] = { 
-            isLoading: false, 
-            result: null, 
-            error: null, 
-            refinement: '', 
-            isHighRes: false 
-          };
-        });
-      }
-
       setGenStates(initialStates);
       setFreePhotoClaimed(usageService.hasClaimedFreePhoto());
     } catch (err) {
@@ -122,31 +105,15 @@ const UserView: React.FC<UserViewProps> = ({
         }
         storageService.logActivity('photo_uploaded', { size: file.size, type: file.type });
 
-        // Trigger automatic generation of configured Magic Previews
-        triggerAutoGens(base64);
+        // Auto-generate styles that are marked for it
+        styles.forEach(s => {
+          if (s.autoGenerate) {
+            handleGenerate(s, base64);
+          }
+        });
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const triggerAutoGens = (photo: string) => {
-    if (!settings?.magicPreviews || settings.magicPreviews.length === 0) return;
-
-    // Convert MagicPreviewConfigs to temporary StyleTemplates for rendering
-    const previewStyles: StyleTemplate[] = settings.magicPreviews.map((m: MagicPreviewConfig) => ({
-      id: m.id,
-      name: m.name,
-      description: m.description,
-      prompt: m.prompt,
-      imageUrl: photo 
-    }));
-
-    setQuickGenItems(previewStyles);
-    setShowQuickPreviews(true);
-
-    previewStyles.forEach(style => {
-      handleGenerate(style, photo);
-    });
   };
 
   const handleGenerate = async (style: StyleTemplate, overridePhoto?: string) => {
@@ -208,7 +175,7 @@ const UserView: React.FC<UserViewProps> = ({
 
   const handleAddToCart = (styleId: string) => {
     const state = genStates[styleId];
-    const style = styles.find(s => s.id === styleId) || quickGenItems.find(s => s.id === styleId);
+    const style = styles.find(s => s.id === styleId);
     if (!state.result || !style) return;
 
     if (cart.find(item => item.id === styleId)) {
@@ -487,22 +454,6 @@ const UserView: React.FC<UserViewProps> = ({
           <input type="file" ref={uploadInputRef} accept="image/*" onChange={handleFileUpload} className="hidden" />
         </div>
       </section>
-
-      {/* Automatic Previews Section (Initially Hidden) */}
-      {showQuickPreviews && (
-        <section className="space-y-8 animate-in slide-in-from-bottom-10 duration-1000">
-          <div className="flex flex-col items-center text-center gap-2">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Magic Previews ✨</h2>
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Your photo is being transformed into these styles</p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {quickGenItems.map(style => renderStyleCard(style))}
-          </div>
-          
-          <div className="h-px w-full bg-rose-100 my-12" />
-        </section>
-      )}
 
       {/* Main Style Grid */}
       <section className="space-y-8">

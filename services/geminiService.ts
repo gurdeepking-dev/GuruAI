@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { logger } from "./logger";
 import { storageService } from "./storage";
@@ -12,14 +11,15 @@ export const geminiService = {
     const settings = await storageService.getAdminSettings();
     let keyPool = settings.geminiApiKeys?.filter(k => k.status === 'active') || [];
     
-    // Check for process.env.API_KEY as final fallback if pool is empty
-    const envKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
+    // Check for process.env.API_KEY as strictly defined in guidelines
+    const envKey = process.env.API_KEY;
     
+    // If pool is empty but we have a platform-injected key, use it
     if (keyPool.length === 0 && envKey && envKey.trim() !== '') {
       keyPool.push({
-        id: 'env-fallback',
+        id: 'env-primary',
         key: envKey,
-        label: 'Environment Fallback',
+        label: 'Platform Key',
         status: 'active',
         addedAt: Date.now()
       });
@@ -27,21 +27,20 @@ export const geminiService = {
 
     if (keyPool.length === 0) {
       logger.error('AI', 'No active API keys available');
-      throw new Error("Service unavailable. No active API keys found. Please add a NEW key in the Admin Panel.");
+      throw new Error("Service unavailable. No API key found. Please configure an API key in the environment or Admin Panel.");
     }
 
     const finalPrompt = refinement 
       ? `Transform this person into the following style: ${prompt}. Additional instructions: ${refinement}. Preserve the person's facial features and identity exactly.`
       : `Transform this person into the following style: ${prompt}. Preserve the person's facial features and identity exactly. High-quality artistic output.`;
 
-    // Try keys one by one
+    // Try keys in the pool
     for (const apiRecord of keyPool) {
       try {
         if (!apiRecord.key || apiRecord.key.length < 10) continue;
 
         logger.info('AI', `Attempting with key: ${apiRecord.label}`);
         
-        // Pass the key directly to ensure the SDK uses the pool key, not a leaked env variable
         const ai = new GoogleGenAI({ apiKey: apiRecord.key });
         
         const response = await ai.models.generateContent({
@@ -57,7 +56,6 @@ export const geminiService = {
               { text: finalPrompt }
             ]
           }
-          // Removed imageConfig hardcoding to let the AI match input photo dimensions
         });
 
         if (response.candidates && response.candidates.length > 0) {
@@ -70,27 +68,30 @@ export const geminiService = {
           }
         }
         
-        throw new Error("Empty AI response");
+        throw new Error("AI returned no image data.");
 
       } catch (error: any) {
         const errorMessage = error.message || '';
-        const isLeaked = errorMessage.toLowerCase().includes('leaked') || errorMessage.includes('403');
-        const isInvalid = errorMessage.toLowerCase().includes('invalid') || errorMessage.includes('401');
+        const isAuthError = errorMessage.toLowerCase().includes('leaked') || 
+                            errorMessage.includes('403') || 
+                            errorMessage.includes('401') || 
+                            errorMessage.toLowerCase().includes('api_key_invalid');
 
         logger.warn('AI', `Key ${apiRecord.label} failed`, { message: errorMessage });
 
-        // AUTO-DISABLE DEAD KEYS: If the key is specifically reported as leaked or invalid
-        if (isLeaked || isInvalid) {
-          logger.error('AI', `Permanently disabling key ${apiRecord.label} due to security/validity error`);
+        // Auto-disable keys that are clearly broken
+        if (isAuthError && apiRecord.id !== 'env-primary') {
+          logger.error('AI', `Permanently disabling key ${apiRecord.label} due to auth error`);
           this.deactivateKey(apiRecord.id);
         }
 
-        // Continue to the next key
+        // If we only have one key and it failed, throw immediately
+        if (keyPool.length === 1) throw error;
         continue;
       }
     }
 
-    throw new Error("All your API keys are failing. One or more might be 'Leaked' or 'Rate Limited'. Please generate a NEW key in Google AI Studio and update your Admin Panel.");
+    throw new Error("All available API keys failed. Please check your AI Studio console for quota or validity issues.");
   },
 
   async deactivateKey(id: string) {
