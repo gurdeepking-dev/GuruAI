@@ -96,8 +96,8 @@ const App: React.FC = () => {
           
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-6 text-[10px] uppercase tracking-widest font-black text-slate-400">
             <button onClick={() => setCurrentView('home')} className="hover:text-rose-600 transition-colors">Home</button>
-            <button onClick={() => setCurrentView('about')} className="hover:text-rose-600 transition-colors">Who We Are</button>
-            <button onClick={() => setCurrentView('contact')} className="hover:text-rose-600 transition-colors">Need Help?</button>
+            <button onClick={() => setCurrentView('about')} className="hover:text-rose-600 transition-colors">About Us</button>
+            <button onClick={() => setCurrentView('contact')} className="hover:text-rose-600 transition-colors">Help</button>
             <button onClick={() => setCurrentView('terms')} className="hover:text-rose-600 transition-colors">Rules</button>
             <button onClick={() => setCurrentView('privacy')} className="hover:text-rose-600 transition-colors">Privacy</button>
             <button onClick={() => setCurrentView('refund')} className="hover:text-rose-600 transition-colors">Refunds</button>
@@ -109,7 +109,7 @@ const App: React.FC = () => {
           <div className="space-y-2">
             <p className="font-bold text-slate-900 uppercase">chatgpt digital store</p>
             <p className="text-[10px] font-medium max-w-lg mx-auto leading-relaxed">
-              Making your photos look amazing with AI. Perfect for Valentine's Day and special moments.
+              We make your photos look amazing with AI. Perfect for your loved ones and special days.
             </p>
             <p className="pt-4 text-xs font-bold text-slate-400">&copy; {new Date().getFullYear()} All Rights Reserved.</p>
           </div>

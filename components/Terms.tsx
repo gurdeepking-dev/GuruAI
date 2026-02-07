@@ -4,28 +4,33 @@ import React from 'react';
 const Terms: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto py-16 px-6 bg-white rounded-[3rem] shadow-xl border border-slate-100 animate-in fade-in duration-700">
-      <h2 className="text-4xl font-black text-slate-900 mb-8 tracking-tighter text-center">Rules of Use</h2>
+      <h2 className="text-4xl font-black text-slate-900 mb-8 tracking-tighter text-center">Terms and Conditions</h2>
       <div className="prose prose-slate max-w-none space-y-6 text-slate-600 font-medium">
-        <p>Welcome! By using our website, you agree to these simple rules.</p>
+        <p>Welcome to chatgpt digital store. By using our website, you agree to comply with and be bound by the following terms and conditions of use.</p>
         
         <section className="space-y-2">
-          <h3 className="text-xl font-bold text-slate-800">1. Using Our Site</h3>
-          <p>Please use our website only for fun and to make art. Do not try to break the site or use it for bad things.</p>
+          <h3 className="text-xl font-bold text-slate-800">1. Acceptance of Terms</h3>
+          <p>By accessing this website, you are agreeing to be bound by these web site Terms and Conditions of Use, all applicable laws and regulations, and agree that you are responsible for compliance with any applicable local laws.</p>
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-xl font-bold text-slate-800">2. Our Content</h3>
-          <p>Everything you see on this site belongs to us. Please do not copy our styles or images without asking.</p>
+          <h3 className="text-xl font-bold text-slate-800">2. Use License</h3>
+          <p>Permission is granted to temporarily download one copy of the materials (information or software) on chatgpt digital store's web site for personal, non-commercial transitory viewing only.</p>
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-xl font-bold text-slate-800">3. AI Results</h3>
-          <p>We use AI to make your art. Sometimes it is not perfect, but it is always unique and artistic. We hope you like it!</p>
+          <h3 className="text-xl font-bold text-slate-800">3. Disclaimer</h3>
+          <p>The materials on chatgpt digital store's web site are provided "as is". chatgpt digital store makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties, including without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.</p>
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-xl font-bold text-slate-800">4. Responsibility</h3>
-          <p>You are responsible for the photos you upload. Please only upload photos that you own.</p>
+          <h3 className="text-xl font-bold text-slate-800">4. Service Limitations</h3>
+          <p>chatgpt digital store uses AI models to generate images. We do not guarantee the perfection of results. The output is a digital artistic representation based on the user's input photo.</p>
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="text-xl font-bold text-slate-800">5. Governing Law</h3>
+          <p>Any claim relating to chatgpt digital store's web site shall be governed by the laws of India without regard to its conflict of law provisions.</p>
         </section>
       </div>
     </div>

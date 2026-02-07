@@ -10,14 +10,6 @@ export interface StyleTemplate {
   displayOrder?: number;
 }
 
-export interface ApiKeyRecord {
-  id: string;
-  key: string;
-  label: string;
-  status: 'active' | 'exhausted' | 'invalid';
-  addedAt: number;
-}
-
 export interface Coupon {
   id: string;
   code: string;
@@ -44,8 +36,6 @@ export interface AdminSettings {
   username: string;
   payment: PaymentConfig;
   tracking: TrackingConfig;
-  geminiApiKey?: string;
-  geminiApiKeys?: ApiKeyRecord[];
   coupons?: Coupon[];
 }
 

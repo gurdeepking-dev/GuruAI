@@ -1,5 +1,5 @@
 
-import { supabase } from './supabase';
+import { supabase, supabaseUrl } from './supabase';
 import { storageService } from './storage';
 import { logger } from './logger';
 
@@ -33,37 +33,39 @@ export const optimizationService = {
 
     for (const style of styles) {
       try {
-        // Skip if not hosted on our Supabase
-        const supabaseUrl = (supabase as any).supabaseUrl;
+        // Only process images hosted on our Supabase bucket
         if (!style.imageUrl.includes(supabaseUrl)) {
-          addLog(`⏭️ Skipping ${style.name}: External image.`, 'info');
+          addLog(`⏭️ Skipping ${style.name}: External image (likely Unsplash).`, 'info');
           continue;
         }
 
         // Skip if already optimized WebP
-        if (style.imageUrl.toLowerCase().endsWith('.webp')) {
-          addLog(`⏭️ Skipping ${style.name}: Already optimized.`, 'info');
+        if (style.imageUrl.toLowerCase().includes('.webp') && !style.imageUrl.includes('transform')) {
+          addLog(`⏭️ Skipping ${style.name}: Already a native optimized WebP.`, 'info');
           continue;
         }
 
-        addLog(`📸 Processing ${style.name}...`, 'info');
+        addLog(`📸 Optimizing ${style.name}...`, 'info');
 
-        // 1. Download
-        const response = await fetch(style.imageUrl);
+        // 1. Download original
+        const cleanUrl = style.imageUrl.split('?')[0]; // Remove any existing transform params
+        const response = await fetch(cleanUrl);
+        if (!response.ok) throw new Error(`Fetch failed: ${response.statusText}`);
+        
         const originalBlob = await response.blob();
         const originalSize = originalBlob.size;
 
-        // 2. Optimize in Browser
+        // 2. Optimize in Browser (Resize to 1000px max, 80% WebP)
         const optimizedBlob = await this.optimizeImage(originalBlob);
         const savedSize = originalSize - optimizedBlob.size;
-        totalSavedBytes += Math.max(0, savedSize);
-
+        
         // 3. Upload back to Supabase
         const bucketName = 'templates';
-        const urlParts = style.imageUrl.split(`${bucketName}/`);
-        if (urlParts.length < 2) throw new Error('Invalid storage path');
+        const urlParts = cleanUrl.split(`${bucketName}/`);
+        if (urlParts.length < 2) throw new Error('Invalid storage path structure');
         
-        const originalPath = urlParts[1].split('?')[0]; // Strip transform params
+        const originalPath = urlParts[1];
+        // Ensure path ends in .webp
         const newPath = originalPath.replace(/\.[^.]+$/, '.webp');
 
         const { error: uploadError } = await supabase.storage
@@ -76,7 +78,7 @@ export const optimizationService = {
 
         if (uploadError) throw uploadError;
 
-        // 4. Update Database
+        // 4. Update Database with the clean permanent WebP URL
         const { data: { publicUrl } } = supabase.storage
           .from(bucketName)
           .getPublicUrl(newPath);
@@ -88,8 +90,9 @@ export const optimizationService = {
 
         if (updateError) throw updateError;
 
+        totalSavedBytes += Math.max(0, savedSize);
         processedCount++;
-        addLog(`✅ ${style.name} optimized! Saved ${(savedSize / 1024).toFixed(2)} KB.`, 'success');
+        addLog(`✅ ${style.name} finished. Saved ${(savedSize / 1024).toFixed(1)} KB.`, 'success');
 
       } catch (err: any) {
         addLog(`❌ Error optimizing ${style.name}: ${err.message}`, 'error');
@@ -97,12 +100,10 @@ export const optimizationService = {
       }
     }
 
-    addLog(`✨ Optimization complete. Processed ${processedCount} images. Total saved: ${(totalSavedBytes / 1024).toFixed(2)} KB.`, 'success');
+    addLog(`✨ All done! Processed ${processedCount} images. Total saved: ${(totalSavedBytes / 1024).toFixed(1)} KB.`, 'success');
     return { saved: totalSavedBytes, count: processedCount };
   },
 
-  // Fix: Removed 'private' modifier from object literal method. 
-  // Object literal properties cannot have access modifiers like 'private' in TypeScript.
   async optimizeImage(blob: Blob): Promise<Blob> {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -111,11 +112,14 @@ export const optimizationService = {
         let width = img.width;
         let height = img.height;
 
-        // Resize if too large (mimic Sharp resize)
-        const MAX_WIDTH = 1200;
-        if (width > MAX_WIDTH) {
-          height = (MAX_WIDTH / width) * height;
-          width = MAX_WIDTH;
+        // Standard high-res target (1000px is sweet spot for web templates)
+        const TARGET_SIZE = 1000;
+        if (width > height && width > TARGET_SIZE) {
+          height = (TARGET_SIZE / width) * height;
+          width = TARGET_SIZE;
+        } else if (height > TARGET_SIZE) {
+          width = (TARGET_SIZE / height) * width;
+          height = TARGET_SIZE;
         }
 
         canvas.width = width;
@@ -127,19 +131,22 @@ export const optimizationService = {
           return;
         }
 
+        // Use high-quality drawing
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Convert to WebP with 80% quality (mimic Sharp webp quality)
+        // Convert to WebP 80% quality (best balance for AI art templates)
         canvas.toBlob(
           (resultBlob) => {
             if (resultBlob) resolve(resultBlob);
-            else reject(new Error('Canvas toBlob failed'));
+            else reject(new Error('Canvas conversion to blob failed'));
           },
           'image/webp',
           0.8
         );
       };
-      img.onerror = () => reject(new Error('Failed to load image for processing'));
+      img.onerror = () => reject(new Error('Image load failed during optimization'));
       img.src = URL.createObjectURL(blob);
     });
   }

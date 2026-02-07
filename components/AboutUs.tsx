@@ -5,18 +5,18 @@ const AboutUs: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto py-16 px-6 space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
       <div className="text-center space-y-4">
-        <h2 className="text-5xl font-black text-slate-900 tracking-tighter">Our Story</h2>
-        <p className="text-xl text-slate-500 font-medium">Making art simple and fun for everyone.</p>
+        <h2 className="text-5xl font-black text-slate-900 tracking-tighter">About Us</h2>
+        <p className="text-xl text-slate-500 font-medium">We help you make easy art with AI.</p>
       </div>
       
       <div className="grid md:grid-cols-2 gap-8 items-center bg-white p-12 rounded-[3rem] shadow-xl border border-slate-100">
         <div className="space-y-6">
           <h3 className="text-3xl font-black text-slate-800">Who We Are</h3>
           <p className="text-slate-600 leading-relaxed">
-            We are a small group of friends who love art. We built this website so you can change your photos into beautiful art with just one click.
+            We are friends who love art and new technology. We built this website to help you make cool photos with just one click.
           </p>
           <p className="text-slate-600 leading-relaxed">
-            We use smart AI to help you create something special. It is fast, easy, and looks amazing!
+            We use smart AI to change your photos into beautiful art pieces. It is fast, easy, and fun for everyone!
           </p>
         </div>
         <div className="aspect-square bg-rose-50 rounded-[2.5rem] flex items-center justify-center">
@@ -29,12 +29,12 @@ const AboutUs: React.FC = () => {
       </div>
 
       <div className="space-y-8">
-        <h3 className="text-center text-2xl font-black text-slate-800">Why You Will Love Us</h3>
+        <h3 className="text-center text-2xl font-black text-slate-800">Why choose us?</h3>
         <div className="grid sm:grid-cols-3 gap-6">
           {[
-            { title: 'Safe & Private', desc: 'We do not save your photos. We only use them to make your art.' },
-            { title: 'Beautiful Styles', desc: 'Choose from many unique looks for your photos.' },
-            { title: 'Best Quality', desc: 'We give you clear, high-quality art every time.' }
+            { title: 'Safe & Private', desc: 'We do not keep your photos. We use them only to make the art.' },
+            { title: 'Cool Styles', desc: 'Pick from many special looks for your favorite photos.' },
+            { title: 'Good Quality', desc: 'We give you clear and beautiful images every time.' }
           ].map((item, i) => (
             <div key={i} className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-3">
               <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center text-rose-600 font-black">

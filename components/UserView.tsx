@@ -63,6 +63,7 @@ const UserView: React.FC<UserViewProps> = ({
       setSettings(adminSettings);
       
       const initialStates: GenerationState = {};
+      
       loadedStyles.forEach(s => {
         initialStates[s.id] = { 
           isLoading: false, 
@@ -89,6 +90,7 @@ const UserView: React.FC<UserViewProps> = ({
         const isFirstUpload = !userPhoto;
         setUserPhoto(base64);
         
+        // Reset states and trigger auto-generation
         setGenStates(prev => {
           const newState = { ...prev };
           Object.keys(newState).forEach(id => {
@@ -102,6 +104,7 @@ const UserView: React.FC<UserViewProps> = ({
         }
         storageService.logActivity('photo_uploaded', { size: file.size, type: file.type });
 
+        // Auto-trigger generations for styles marked autoGenerate
         styles.forEach(s => {
           if (s.autoGenerate) {
             handleGenerate(s, base64);
@@ -145,32 +148,42 @@ const UserView: React.FC<UserViewProps> = ({
 
   const handleClaimFree = (styleId: string) => {
     if (freePhotoClaimed) return;
+    
     usageService.markFreePhotoAsUsed();
     setFreePhotoClaimed(true);
+    
     setGenStates(prev => {
       const current = prev[styleId];
       if (current && current.result) {
-        return { ...prev, [styleId]: { ...current, isHighRes: true } };
+        return {
+          ...prev,
+          [styleId]: { ...current, isHighRes: true }
+        };
       }
       return prev;
     });
+
     handleDownload(styleId);
+
     analytics.track('ClaimFree', { style_id: styleId });
+    storageService.logActivity('free_claim', { style_id: styleId });
   };
 
   const handleAddToCart = (styleId: string) => {
     const state = genStates[styleId];
     const style = styles.find(s => s.id === styleId);
     if (!state.result || !style) return;
+
     if (cart.find(item => item.id === styleId)) {
       setShowCheckout(true);
       return;
     }
+
     const newItem: CartItem = {
       id: style.id, 
       styledImage: state.result,
       styleName: style.name,
-      price: settings?.payment.photoPrice || 8.00,
+      price: settings?.payment.photoPrice || 5.00,
     };
     addToCart(newItem);
   };
@@ -180,7 +193,7 @@ const UserView: React.FC<UserViewProps> = ({
     if (!state.result) return;
     const link = document.createElement('a');
     link.href = state.result;
-    link.download = `my-art-${styleId}.png`;
+    link.download = `photo-${styleId}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -196,22 +209,32 @@ const UserView: React.FC<UserViewProps> = ({
       status: 'success'
     };
     await storageService.saveTransaction(tx);
-    analytics.track('Purchase', { value: tx.amount, currency: 'INR', transaction_id: paymentId, num_items: paidItemIds.length });
+
+    analytics.track('Purchase', {
+      value: tx.amount,
+      currency: 'INR',
+      transaction_id: paymentId,
+      num_items: paidItemIds.length
+    });
+
     setGenStates(prev => {
       const newState = { ...prev };
-      paidItemIds.forEach(id => { if (newState[id]) newState[id].isHighRes = true; });
+      paidItemIds.forEach(id => {
+        if (newState[id]) newState[id].isHighRes = true;
+      });
       return newState;
     });
+
     setCart([]);
     setShowCheckout(false);
-    alert("Wonderful! Your payment is done. Now you can download your beautiful art.");
+    alert("Payment successful! You can now download your HD photos.");
   };
 
   const renderStyleCard = (s: StyleTemplate) => {
     const state = genStates[s.id] || { isLoading: false, result: null, error: null, refinement: '', isHighRes: false };
     
     return (
-      <div key={s.id} className="group relative bg-white rounded-[2.5rem] overflow-hidden border-2 border-rose-50 shadow-lg hover:shadow-2xl transition-all duration-500 flex flex-col hover:-translate-y-2">
+      <div key={s.id} className="group relative bg-white rounded-[2.5rem] overflow-hidden border-2 border-rose-50 shadow-lg hover:shadow-2xl hover:shadow-rose-100 transition-all duration-500 flex flex-col hover:-translate-y-2">
         <div className="px-7 pt-7 pb-4 flex justify-between items-center bg-gradient-to-b from-rose-50/50 to-white">
           <h4 className="font-black text-xl sm:text-2xl text-slate-800 tracking-tight leading-tight serif italic">{s.name}</h4>
         </div>
@@ -222,22 +245,50 @@ const UserView: React.FC<UserViewProps> = ({
           {state.isLoading ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center gap-4 bg-white/60 backdrop-blur-md z-30">
               <div className="w-12 h-12 border-4 border-rose-500 border-t-rose-100 rounded-full animate-spin" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 animate-pulse">Creating Magic...</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 animate-pulse">
+                AI is making art...
+              </p>
             </div>
           ) : state.result ? (
-            <div className="w-full h-full relative z-20 animate-in zoom-in-95 duration-700 flex items-center justify-center overflow-hidden" onContextMenu={(e) => !state.isHighRes && e.preventDefault()}>
-              <img src={state.result} className={`max-w-full max-h-full object-contain ${!state.isHighRes ? 'pointer-events-none' : ''}`} alt={s.name} />
-              {!state.isHighRes && <Watermark text="www.chatgptdigital.store" />}
-              <button onClick={() => setGenStates(prev => ({...prev, [s.id]: {...prev[s.id], result: null}}))} className="absolute top-4 right-4 p-2.5 bg-white/60 backdrop-blur-md rounded-xl text-rose-600 hover:bg-rose-600 hover:text-white transition-all z-[50]">
+            <div 
+              className="w-full h-full relative z-20 animate-in zoom-in-95 duration-700 flex items-center justify-center overflow-hidden group/preview"
+              onContextMenu={(e) => !state.isHighRes && e.preventDefault()}
+            >
+              <img 
+                src={state.result} 
+                className={`max-w-full max-h-full object-contain ${!state.isHighRes ? 'pointer-events-none select-none' : ''}`} 
+                alt={s.name} 
+                decoding="async" 
+                style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+              />
+              
+              {!state.isHighRes && (
+                <>
+                  <Watermark text="www.chatgptdigital.store" />
+                  <div className="absolute inset-0 z-40 bg-transparent cursor-default"></div>
+                </>
+              )}
+              
+              <button 
+                onClick={() => setGenStates(prev => ({...prev, [s.id]: {...prev[s.id], result: null}}))}
+                className="absolute top-4 right-4 p-2.5 bg-white/60 backdrop-blur-md rounded-xl text-rose-600 hover:bg-rose-600 hover:text-white transition-all z-[50] shadow-sm"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
           ) : (
             <div className="w-full h-full cursor-pointer relative z-20 group/img flex items-center justify-center" onClick={() => handleGenerate(s)}>
-              <img src={s.imageUrl} className="relative z-10 max-w-full max-h-full object-contain transition-all duration-700 group-hover/img:scale-[1.03]" alt={s.name} loading="lazy" />
+              <img 
+                src={s.imageUrl} 
+                className="relative z-10 max-w-full max-h-full object-contain transition-all duration-700 group-hover/img:scale-[1.03]" 
+                alt={s.name} 
+                loading="lazy"
+                decoding="async"
+              />
               <div className="absolute inset-0 z-30 bg-rose-900/20 opacity-0 group-hover/img:opacity-100 transition-all duration-500 flex items-center justify-center backdrop-blur-[2px]">
-                <div className="bg-white/95 px-7 py-3.5 rounded-2xl font-black text-[10px] uppercase text-rose-600 shadow-2xl flex items-center gap-2">
-                  <span>Try this style ✨</span>
+                <div className="bg-white/95 px-7 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-rose-600 shadow-2xl flex items-center gap-2">
+                  <span>See magic</span>
+                  <span className="text-base">✨</span>
                 </div>
               </div>
             </div>
@@ -247,18 +298,24 @@ const UserView: React.FC<UserViewProps> = ({
         <div className="p-7 space-y-4 flex-grow flex flex-col justify-between bg-gradient-to-b from-white to-rose-50/20">
           <div className="space-y-3">
              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">{s.description}</p>
+              
              {state.result && (
-              <div className="space-y-2">
-                  <label className="text-[9px] font-black text-rose-400 uppercase tracking-widest ml-1 block">Change anything? (Optional)</label>
+              <div className="animate-in slide-in-from-bottom-2 duration-500 space-y-2">
+                  <label className="text-[9px] font-black text-rose-400 uppercase tracking-widest ml-1 block">Want to change anything? (Optional)</label>
                   <div className="flex gap-2">
                       <input 
                           type="text" value={state.refinement}
                           onChange={(e) => setGenStates(prev => ({...prev, [s.id]: {...prev[s.id], refinement: e.target.value}}))}
-                          placeholder="Ex: make it blue, add a smile..."
-                          className="flex-grow px-4 py-2 rounded-xl bg-white border-2 border-rose-100 text-[11px] font-semibold outline-none focus:border-rose-300"
+                          placeholder="Example: blue eyes, smiling..."
+                          className="flex-grow px-4 py-2.5 rounded-xl bg-white border-2 border-rose-100 text-[11px] font-semibold outline-none focus:border-rose-300 transition-all placeholder:text-slate-300"
                           onKeyPress={(e) => e.key === 'Enter' && handleGenerate(s)}
                       />
-                      <button onClick={() => handleGenerate(s)} className="px-4 py-2 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase">Redo</button>
+                      <button 
+                          onClick={() => handleGenerate(s)}
+                          className="px-4 py-2.5 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 transition-all shadow-md active:scale-95"
+                      >
+                          Try Again
+                      </button>
                   </div>
               </div>
              )}
@@ -268,19 +325,24 @@ const UserView: React.FC<UserViewProps> = ({
             {state.result ? (
               <div className="flex flex-col gap-3">
                 {state.isHighRes ? (
-                  <button onClick={() => handleDownload(s.id)} className="w-full py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95">
-                    Download My Art 📸
+                  <button onClick={() => handleDownload(s.id)} className="w-full py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    Save to Phone
                   </button>
                 ) : (
                   <>
                     {!freePhotoClaimed ? (
-                      <button onClick={() => handleClaimFree(s.id)} className="w-full py-4 bg-rose-600 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-xl border-b-4 border-rose-800 active:scale-95">
-                        Get 1 photo for free 🎁
+                      <button onClick={() => handleClaimFree(s.id)} className="w-full py-4 bg-rose-600 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-xl hover:bg-rose-700 transition-all active:scale-95 border-b-4 border-rose-800">
+                        Get 1st photo FREE 🎁
                       </button>
                     ) : (
                       <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => handleAddToCart(s.id)} className="py-3 border-2 border-rose-100 bg-white rounded-[1.25rem] font-black text-[10px] text-rose-400 uppercase tracking-widest hover:bg-rose-50 transition-all">Save</button>
-                        <button onClick={() => { handleAddToCart(s.id); setShowCheckout(true); }} className="py-3 bg-slate-900 text-white rounded-[1.25rem] font-black text-[10px] uppercase shadow-xl hover:bg-black active:scale-95">Get Clear HD</button>
+                        <button onClick={() => handleAddToCart(s.id)} className="py-3 border-2 border-rose-100 bg-white rounded-[1.25rem] font-black text-[10px] text-rose-400 uppercase tracking-widest hover:bg-rose-50 transition-all">
+                          Add to Cart
+                        </button>
+                        <button onClick={() => { handleAddToCart(s.id); setShowCheckout(true); }} className="py-3 bg-slate-900 text-white rounded-[1.25rem] font-black text-[10px] uppercase tracking-widest hover:bg-black shadow-xl transition-all">
+                          Buy HD
+                        </button>
                       </div>
                     )}
                   </>
@@ -288,47 +350,64 @@ const UserView: React.FC<UserViewProps> = ({
               </div>
             ) : (
               !state.isLoading && (
-                <button onClick={() => handleGenerate(s)} className="w-full py-5 bg-rose-600 text-white rounded-[1.5rem] font-black text-[12px] uppercase tracking-widest shadow-xl hover:bg-rose-700 active:scale-95 border-b-4 border-rose-800">
-                  Create My Art ✨
+                <button onClick={() => handleGenerate(s)} className="w-full py-5 bg-rose-600 text-white rounded-[1.5rem] font-black text-[12px] uppercase tracking-widest shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all flex items-center justify-center gap-3 group/btn active:scale-95 border-b-4 border-rose-800">
+                  <span>Magic Change Photo ✨</span>
                 </button>
               )
             )}
-            {state.error && <p className="text-[9px] text-rose-600 font-bold uppercase text-center">{state.error}</p>}
+            {state.error && (
+              <div className="p-3 rounded-2xl bg-rose-50 border-2 border-rose-100">
+                <p className="text-[9px] text-rose-600 font-bold uppercase tracking-widest text-center">{state.error}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
     );
   };
 
-  if (!settings) return <div className="py-20 flex flex-col items-center justify-center gap-4 text-rose-400"><div className="w-10 h-10 border-4 border-rose-100 border-t-rose-500 rounded-full animate-spin" /><p className="font-bold">Opening your studio...</p></div>;
+  if (!settings) return (
+    <div className="py-20 flex flex-col items-center justify-center gap-4 text-rose-400">
+      <div className="w-10 h-10 border-4 border-rose-100 border-t-rose-500 rounded-full animate-spin" />
+      <p className="font-bold tracking-tight">Wait a moment...</p>
+    </div>
+  );
 
   const currencySymbol = storageService.getCurrencySymbol(settings.payment.currency);
 
   return (
     <div className="space-y-8 sm:space-y-12 pb-24 max-w-7xl mx-auto px-4">
-      <section className="bg-white rounded-[2.5rem] p-6 sm:p-10 shadow-2xl border border-rose-100 text-center space-y-8 relative overflow-hidden">
+      <section className="bg-white rounded-[2.5rem] p-6 sm:p-10 shadow-2xl border border-rose-100 text-center space-y-8 overflow-hidden relative">
         <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full blur-3xl -mr-10 -mt-10"></div>
         <div className="relative space-y-4">
           <div className="flex items-center justify-center gap-2">
             <span className="text-2xl animate-bounce">📽️</span>
-            <h3 className="text-lg sm:text-xl font-black text-slate-800 tracking-tight uppercase serif italic">See how it works</h3>
+            <h3 className="text-lg sm:text-xl font-black text-slate-800 tracking-tight uppercase tracking-widest serif italic">See how it works</h3>
           </div>
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div className="relative mx-auto w-full max-w-[280px] sm:max-w-xs aspect-[9/16] bg-slate-900 rounded-[2.5rem] p-3 shadow-2xl ring-8 ring-rose-50 overflow-hidden">
-              <video autoPlay muted playsInline loop controls className="w-full h-full object-contain rounded-2xl">
+              <video 
+                autoPlay muted playsInline loop controls 
+                className="w-full h-full object-contain rounded-2xl"
+              >
                 <source src="https://ghdwufjkpjuidyfsgkde.supabase.co/storage/v1/object/public/media/howto.mp4" type="video/mp4" />
               </video>
             </div>
             <div className="text-left space-y-6">
-              {[1, 2, 3].map(num => (
-                <div key={num} className="flex gap-4 items-start group">
-                  <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black flex-shrink-0 group-hover:scale-110 transition-transform shadow-sm">{num}</div>
-                  <div>
-                    <h4 className="font-black text-slate-800 uppercase text-sm">{num === 1 ? 'Add Your Photo' : num === 2 ? 'Choose Your Style' : 'Get Your Art'}</h4>
-                    <p className="text-slate-500 text-xs font-medium">{num === 1 ? 'Upload a clear photo of your face.' : num === 2 ? 'Pick a style and watch the magic.' : 'Save your free photo or buy more beautiful art!'}</p>
+              <div className="space-y-4">
+                {[1, 2, 3].map(num => (
+                  <div key={num} className="flex gap-4 items-start group">
+                    <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black flex-shrink-0 group-hover:scale-110 transition-transform shadow-sm">{num}</div>
+                    <div>
+                      <h4 className="font-black text-slate-800 uppercase tracking-wide text-sm">{num === 1 ? 'Choose Photo' : num === 2 ? 'Pick Style' : 'Get Art'}</h4>
+                      <p className="text-slate-500 text-xs font-medium">{num === 1 ? 'Select a good photo from your phone.' : num === 2 ? 'Click the pink button on a style you like.' : 'Download your free photo or buy more!'}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 shadow-inner">
+                <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest text-center">It only takes 30 seconds! ✨</p>
+              </div>
             </div>
           </div>
         </div>
@@ -339,23 +418,34 @@ const UserView: React.FC<UserViewProps> = ({
         <div className="relative max-w-4xl mx-auto flex flex-col items-center gap-6 sm:gap-8">
           <div className="relative" onClick={() => uploadInputRef.current?.click()}>
             <div className={`w-36 h-36 md:w-52 md:h-52 rounded-[2.5rem] flex items-center justify-center transition-all duration-500 shadow-2xl cursor-pointer hover:scale-[1.03] active:scale-95 ${userPhoto ? 'bg-white ring-8 ring-rose-50' : 'bg-gradient-to-br from-rose-500 to-pink-500 shadow-rose-200'}`}>
-              {userPhoto ? <img src={userPhoto} className="w-full h-full object-cover rounded-[2.5rem]" alt="Your Photo" /> : <div className="flex flex-col items-center gap-2"><span className="text-white text-3xl sm:text-4xl">📸</span><span className="text-[10px] sm:text-[11px] font-black text-rose-100 uppercase">Add Your Photo</span></div>}
+              {userPhoto ? (
+                <img src={userPhoto} className="w-full h-full object-cover rounded-[2.5rem]" alt="Your Photo" />
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <span className="text-white text-3xl sm:text-4xl">📸</span>
+                  <span className="text-[10px] sm:text-[11px] font-black text-rose-100 uppercase tracking-widest">Add Photo</span>
+                </div>
+              )}
             </div>
           </div>
           
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 mb-1">
               <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
-              <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Get 1 Free Photo 🎁</span>
+              <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Get your 1st photo FREE 🎁</span>
             </div>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tighter serif leading-tight">AI Art <span className="text-rose-500 italic">Studio</span></h1>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-tight serif">
+              Magic AI <span className="text-rose-500 italic">Art</span>
+            </h1>
             <p className="text-sm md:text-base text-slate-400 font-semibold max-w-lg mx-auto leading-relaxed px-4">
-              Make your photos look beautiful with AI. Get your first photo for free. Clear HD art for just <span className="text-slate-900 font-bold">{currencySymbol}{settings.payment.photoPrice}</span>.
+              Change your photo into a new style. 1 photo is <span className="text-rose-500">FREE</span>. Others are only <span className="text-slate-900">{currencySymbol}{settings.payment.photoPrice}</span>.
             </p>
           </div>
 
           {!userPhoto && (
-            <button onClick={() => uploadInputRef.current?.click()} className="px-8 py-4 bg-rose-600 text-white rounded-[1.5rem] font-black text-base shadow-2xl shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95">Choose Photo 📸</button>
+            <button onClick={() => uploadInputRef.current?.click()} className="group px-8 py-4 bg-rose-600 text-white rounded-[1.5rem] font-black text-base shadow-2xl shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95">
+              Select Your Photo 📸
+            </button>
           )}
           
           <input type="file" ref={uploadInputRef} accept="image/*" onChange={handleFileUpload} className="hidden" />
@@ -364,15 +454,21 @@ const UserView: React.FC<UserViewProps> = ({
 
       <section className="space-y-8">
         <div className="flex flex-col items-center text-center gap-2">
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Pick Your Favorite Look</h2>
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Select one to start the magic</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Choose a Style</h2>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Many beautiful looks</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-12">
           {styles.map((s) => renderStyleCard(s))}
         </div>
       </section>
 
-      <CheckoutModal isOpen={showCheckout} onClose={() => setShowCheckout(false)} cart={cart} onRemove={removeFromCart} onComplete={handlePaymentComplete} />
+      <CheckoutModal 
+        isOpen={showCheckout}
+        onClose={() => setShowCheckout(false)}
+        cart={cart}
+        onRemove={removeFromCart}
+        onComplete={handlePaymentComplete}
+      />
     </div>
   );
 };
