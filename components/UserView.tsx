@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleTemplate, CartItem, User, TransactionRecord } from '../types';
+import { StyleTemplate, CartItem, User, TransactionRecord, MagicPreviewConfig } from '../types';
 import { storageService } from '../services/storage';
 import { geminiService } from '../services/geminiService';
 import { usageService } from '../services/usageService';
@@ -40,6 +40,10 @@ const UserView: React.FC<UserViewProps> = ({
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const [freePhotoClaimed, setFreePhotoClaimed] = useState(false);
   const [settings, setSettings] = useState<any>(null);
+  
+  // State for the 4 automatic previews
+  const [showQuickPreviews, setShowQuickPreviews] = useState(false);
+  const [quickGenItems, setQuickGenItems] = useState<StyleTemplate[]>([]);
 
   useEffect(() => {
     logger.info('View', 'UserView mounted');
@@ -64,6 +68,7 @@ const UserView: React.FC<UserViewProps> = ({
       
       const initialStates: GenerationState = {};
       
+      // Initialize states for styles
       loadedStyles.forEach(s => {
         initialStates[s.id] = { 
           isLoading: false, 
@@ -73,6 +78,19 @@ const UserView: React.FC<UserViewProps> = ({
           isHighRes: false 
         };
       });
+
+      // Initialize states for magic previews
+      if (adminSettings.magicPreviews) {
+        adminSettings.magicPreviews.forEach((m: MagicPreviewConfig) => {
+          initialStates[m.id] = { 
+            isLoading: false, 
+            result: null, 
+            error: null, 
+            refinement: '', 
+            isHighRes: false 
+          };
+        });
+      }
 
       setGenStates(initialStates);
       setFreePhotoClaimed(usageService.hasClaimedFreePhoto());
@@ -90,7 +108,7 @@ const UserView: React.FC<UserViewProps> = ({
         const isFirstUpload = !userPhoto;
         setUserPhoto(base64);
         
-        // Reset states and trigger auto-generation
+        // Reset states for a fresh upload
         setGenStates(prev => {
           const newState = { ...prev };
           Object.keys(newState).forEach(id => {
@@ -104,15 +122,31 @@ const UserView: React.FC<UserViewProps> = ({
         }
         storageService.logActivity('photo_uploaded', { size: file.size, type: file.type });
 
-        // Auto-trigger generations for styles marked autoGenerate
-        styles.forEach(s => {
-          if (s.autoGenerate) {
-            handleGenerate(s, base64);
-          }
-        });
+        // Trigger automatic generation of configured Magic Previews
+        triggerAutoGens(base64);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const triggerAutoGens = (photo: string) => {
+    if (!settings?.magicPreviews || settings.magicPreviews.length === 0) return;
+
+    // Convert MagicPreviewConfigs to temporary StyleTemplates for rendering
+    const previewStyles: StyleTemplate[] = settings.magicPreviews.map((m: MagicPreviewConfig) => ({
+      id: m.id,
+      name: m.name,
+      description: m.description,
+      prompt: m.prompt,
+      imageUrl: photo 
+    }));
+
+    setQuickGenItems(previewStyles);
+    setShowQuickPreviews(true);
+
+    previewStyles.forEach(style => {
+      handleGenerate(style, photo);
+    });
   };
 
   const handleGenerate = async (style: StyleTemplate, overridePhoto?: string) => {
@@ -149,9 +183,11 @@ const UserView: React.FC<UserViewProps> = ({
   const handleClaimFree = (styleId: string) => {
     if (freePhotoClaimed) return;
     
+    // 1. Mark usage
     usageService.markFreePhotoAsUsed();
     setFreePhotoClaimed(true);
     
+    // 2. Set current image to high res state locally
     setGenStates(prev => {
       const current = prev[styleId];
       if (current && current.result) {
@@ -163,6 +199,7 @@ const UserView: React.FC<UserViewProps> = ({
       return prev;
     });
 
+    // 3. Trigger immediate download
     handleDownload(styleId);
 
     analytics.track('ClaimFree', { style_id: styleId });
@@ -171,7 +208,7 @@ const UserView: React.FC<UserViewProps> = ({
 
   const handleAddToCart = (styleId: string) => {
     const state = genStates[styleId];
-    const style = styles.find(s => s.id === styleId);
+    const style = styles.find(s => s.id === styleId) || quickGenItems.find(s => s.id === styleId);
     if (!state.result || !style) return;
 
     if (cart.find(item => item.id === styleId)) {
@@ -227,7 +264,7 @@ const UserView: React.FC<UserViewProps> = ({
 
     setCart([]);
     setShowCheckout(false);
-    alert("Payment successful! You can now download your HD photos.");
+    alert("Paid! You can now download your photos in high quality.");
   };
 
   const renderStyleCard = (s: StyleTemplate) => {
@@ -246,7 +283,7 @@ const UserView: React.FC<UserViewProps> = ({
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center gap-4 bg-white/60 backdrop-blur-md z-30">
               <div className="w-12 h-12 border-4 border-rose-500 border-t-rose-100 rounded-full animate-spin" />
               <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 animate-pulse">
-                AI is making art...
+                AI is working...
               </p>
             </div>
           ) : state.result ? (
@@ -287,7 +324,7 @@ const UserView: React.FC<UserViewProps> = ({
               />
               <div className="absolute inset-0 z-30 bg-rose-900/20 opacity-0 group-hover/img:opacity-100 transition-all duration-500 flex items-center justify-center backdrop-blur-[2px]">
                 <div className="bg-white/95 px-7 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-rose-600 shadow-2xl flex items-center gap-2">
-                  <span>See magic</span>
+                  <span>Try this style</span>
                   <span className="text-base">✨</span>
                 </div>
               </div>
@@ -306,7 +343,7 @@ const UserView: React.FC<UserViewProps> = ({
                       <input 
                           type="text" value={state.refinement}
                           onChange={(e) => setGenStates(prev => ({...prev, [s.id]: {...prev[s.id], refinement: e.target.value}}))}
-                          placeholder="Example: blue eyes, smiling..."
+                          placeholder="Example: more blue, smiling..."
                           className="flex-grow px-4 py-2.5 rounded-xl bg-white border-2 border-rose-100 text-[11px] font-semibold outline-none focus:border-rose-300 transition-all placeholder:text-slate-300"
                           onKeyPress={(e) => e.key === 'Enter' && handleGenerate(s)}
                       />
@@ -327,18 +364,18 @@ const UserView: React.FC<UserViewProps> = ({
                 {state.isHighRes ? (
                   <button onClick={() => handleDownload(s.id)} className="w-full py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    Save to Phone
+                    Saved to your phone gallery
                   </button>
                 ) : (
                   <>
                     {!freePhotoClaimed ? (
                       <button onClick={() => handleClaimFree(s.id)} className="w-full py-4 bg-rose-600 text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest shadow-xl hover:bg-rose-700 transition-all active:scale-95 border-b-4 border-rose-800">
-                        Get 1st photo FREE 🎁
+                        Get your 1 free photo 🎁
                       </button>
                     ) : (
                       <div className="grid grid-cols-2 gap-3">
                         <button onClick={() => handleAddToCart(s.id)} className="py-3 border-2 border-rose-100 bg-white rounded-[1.25rem] font-black text-[10px] text-rose-400 uppercase tracking-widest hover:bg-rose-50 transition-all">
-                          Add to Cart
+                          Save
                         </button>
                         <button onClick={() => { handleAddToCart(s.id); setShowCheckout(true); }} className="py-3 bg-slate-900 text-white rounded-[1.25rem] font-black text-[10px] uppercase tracking-widest hover:bg-black shadow-xl transition-all">
                           Buy HD
@@ -351,7 +388,7 @@ const UserView: React.FC<UserViewProps> = ({
             ) : (
               !state.isLoading && (
                 <button onClick={() => handleGenerate(s)} className="w-full py-5 bg-rose-600 text-white rounded-[1.5rem] font-black text-[12px] uppercase tracking-widest shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all flex items-center justify-center gap-3 group/btn active:scale-95 border-b-4 border-rose-800">
-                  <span>Magic Change Photo ✨</span>
+                  <span>Transform My Photo ✨</span>
                 </button>
               )
             )}
@@ -369,7 +406,7 @@ const UserView: React.FC<UserViewProps> = ({
   if (!settings) return (
     <div className="py-20 flex flex-col items-center justify-center gap-4 text-rose-400">
       <div className="w-10 h-10 border-4 border-rose-100 border-t-rose-500 rounded-full animate-spin" />
-      <p className="font-bold tracking-tight">Wait a moment...</p>
+      <p className="font-bold tracking-tight">Opening store...</p>
     </div>
   );
 
@@ -377,19 +414,17 @@ const UserView: React.FC<UserViewProps> = ({
 
   return (
     <div className="space-y-8 sm:space-y-12 pb-24 max-w-7xl mx-auto px-4">
+      {/* Tutorial Video Section */}
       <section className="bg-white rounded-[2.5rem] p-6 sm:p-10 shadow-2xl border border-rose-100 text-center space-y-8 overflow-hidden relative">
         <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full blur-3xl -mr-10 -mt-10"></div>
         <div className="relative space-y-4">
           <div className="flex items-center justify-center gap-2">
             <span className="text-2xl animate-bounce">📽️</span>
-            <h3 className="text-lg sm:text-xl font-black text-slate-800 tracking-tight uppercase tracking-widest serif italic">See how it works</h3>
+            <h3 className="text-lg sm:text-xl font-black text-slate-800 tracking-tight uppercase tracking-widest serif italic">Watch video to learn how it work</h3>
           </div>
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div className="relative mx-auto w-full max-w-[280px] sm:max-w-xs aspect-[9/16] bg-slate-900 rounded-[2.5rem] p-3 shadow-2xl ring-8 ring-rose-50 overflow-hidden">
-              <video 
-                autoPlay muted playsInline loop controls 
-                className="w-full h-full object-contain rounded-2xl"
-              >
+              <video autoPlay muted playsInline loop controls className="w-full h-full object-contain rounded-2xl">
                 <source src="https://ghdwufjkpjuidyfsgkde.supabase.co/storage/v1/object/public/media/howto.mp4" type="video/mp4" />
               </video>
             </div>
@@ -399,20 +434,21 @@ const UserView: React.FC<UserViewProps> = ({
                   <div key={num} className="flex gap-4 items-start group">
                     <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black flex-shrink-0 group-hover:scale-110 transition-transform shadow-sm">{num}</div>
                     <div>
-                      <h4 className="font-black text-slate-800 uppercase tracking-wide text-sm">{num === 1 ? 'Choose Photo' : num === 2 ? 'Pick Style' : 'Get Art'}</h4>
-                      <p className="text-slate-500 text-xs font-medium">{num === 1 ? 'Select a good photo from your phone.' : num === 2 ? 'Click the pink button on a style you like.' : 'Download your free photo or buy more!'}</p>
+                      <h4 className="font-black text-slate-800 uppercase tracking-wide text-sm">{num === 1 ? 'Upload Photo' : num === 2 ? 'Choose Style' : 'Get Your Art'}</h4>
+                      <p className="text-slate-500 text-xs font-medium">{num === 1 ? 'Pick a clear photo from your phone.' : num === 2 ? 'Click "Transform My Photo" on any style you like.' : 'Claim your 1 Free photo or buy more in HD!'}</p>
                     </div>
                   </div>
                 ))}
               </div>
               <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 shadow-inner">
-                <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest text-center">It only takes 30 seconds! ✨</p>
+                <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest text-center">It takes only 30 seconds! ✨</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
+      {/* Hero Section */}
       <section className="relative overflow-hidden bg-white rounded-[2.5rem] md:rounded-[4rem] p-6 md:p-12 shadow-2xl border border-rose-100 text-center">
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-rose-50 rounded-full blur-3xl opacity-60" />
         <div className="relative max-w-4xl mx-auto flex flex-col items-center gap-6 sm:gap-8">
@@ -423,7 +459,7 @@ const UserView: React.FC<UserViewProps> = ({
               ) : (
                 <div className="flex flex-col items-center gap-2">
                   <span className="text-white text-3xl sm:text-4xl">📸</span>
-                  <span className="text-[10px] sm:text-[11px] font-black text-rose-100 uppercase tracking-widest">Add Photo</span>
+                  <span className="text-[10px] sm:text-[11px] font-black text-rose-100 uppercase tracking-widest">Upload Photo</span>
                 </div>
               )}
             </div>
@@ -432,19 +468,19 @@ const UserView: React.FC<UserViewProps> = ({
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 mb-1">
               <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
-              <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Get your 1st photo FREE 🎁</span>
+              <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Get your 1 free photo 🎁</span>
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-tight serif">
-              Magic AI <span className="text-rose-500 italic">Art</span>
+              AI Magic <span className="text-rose-500 italic">Photos</span>
             </h1>
             <p className="text-sm md:text-base text-slate-400 font-semibold max-w-lg mx-auto leading-relaxed px-4">
-              Change your photo into a new style. 1 photo is <span className="text-rose-500">FREE</span>. Others are only <span className="text-slate-900">{currencySymbol}{settings.payment.photoPrice}</span>.
+              Change your photo to a cool style. Get 1 photo for <span className="text-rose-500">FREE</span>. Others for just <span className="text-slate-900">{currencySymbol}{settings.payment.photoPrice}</span>.
             </p>
           </div>
 
           {!userPhoto && (
             <button onClick={() => uploadInputRef.current?.click()} className="group px-8 py-4 bg-rose-600 text-white rounded-[1.5rem] font-black text-base shadow-2xl shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95">
-              Select Your Photo 📸
+              Choose Your Photo 📸
             </button>
           )}
           
@@ -452,10 +488,27 @@ const UserView: React.FC<UserViewProps> = ({
         </div>
       </section>
 
+      {/* Automatic Previews Section (Initially Hidden) */}
+      {showQuickPreviews && (
+        <section className="space-y-8 animate-in slide-in-from-bottom-10 duration-1000">
+          <div className="flex flex-col items-center text-center gap-2">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Magic Previews ✨</h2>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Your photo is being transformed into these styles</p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {quickGenItems.map(style => renderStyleCard(style))}
+          </div>
+          
+          <div className="h-px w-full bg-rose-100 my-12" />
+        </section>
+      )}
+
+      {/* Main Style Grid */}
       <section className="space-y-8">
         <div className="flex flex-col items-center text-center gap-2">
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Choose a Style</h2>
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Many beautiful looks</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight serif italic">Explore More Styles</h2>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Discover hundreds of artistic variations</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-12">
           {styles.map((s) => renderStyleCard(s))}

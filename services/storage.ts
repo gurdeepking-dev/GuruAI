@@ -1,5 +1,5 @@
 
-import { StyleTemplate, AdminSettings, TransactionRecord, Coupon } from '../types';
+import { StyleTemplate, AdminSettings, TransactionRecord, ApiKeyRecord, MagicPreviewConfig, Coupon } from '../types';
 import { logger } from './logger';
 import { supabase } from './supabase';
 import { imageStorage } from './imageStorage';
@@ -12,26 +12,36 @@ export const DEFAULT_STYLES: StyleTemplate[] = [
   { 
     id: 'valentine-love', 
     name: 'Eternal Romance', 
-    imageUrl: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500&q=75&auto=format', 
+    imageUrl: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=800&q=80', 
     prompt: 'A romantic fine art photo with a soft dreamy glow, surrounded by floating red and pink rose petals, elegant lighting, warm color palette, professional photography, ethereal atmosphere. Preserve facial identity perfectly.', 
-    description: 'Perfect for Valentine gifts.',
-    displayOrder: 0,
-    autoGenerate: true
+    description: 'Perfect for Valentine gifts.' 
   },
   { 
     id: 'viking-sikh', 
     name: 'Sikh Warrior Viking', 
-    imageUrl: 'https://images.unsplash.com/photo-1519074063912-ad2dbf50b16d?w=500&q=75&auto=format', 
+    imageUrl: 'https://images.unsplash.com/photo-1519074063912-ad2dbf50b16d?w=800&q=80', 
     prompt: 'A majestic Sikh warrior in Viking chieftain attire, wearing a traditional turban with ceremonial accents, thick beard, heavy fur cloak with silver brooches, leather armor, standing in a snowy misty forest, hyper-realistic, historical epic cinematic style.', 
-    description: 'Norse-Sikh fusion warrior.',
-    displayOrder: 1,
-    autoGenerate: false
-  }
+    description: 'Norse-Sikh fusion warrior.' 
+  },
+  { id: '1', name: 'Royal Indian Wedding', imageUrl: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=800&q=80', prompt: 'A magnificent Indian wedding photo. Traditional royal attire with intricate gold embroidery, heavy jewelry, and a palace background. Warm cinematic lighting.', description: 'Traditional elegance.' },
+  { id: '2', name: 'Cyberpunk Neon', imageUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=800&q=80', prompt: 'Cyberpunk 2077 style. Neon glowing accents, futuristic techwear, rainy night city background with teal and pink lighting. High-tech aesthetic.', description: 'Futuristic sci-fi.' },
+  { id: '3', name: 'Pixar Animation', imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&q=80', prompt: '3D Disney Pixar animation style. Big expressive eyes, smooth skin textures, stylized features, vibrant and soft cinematic lighting.', description: '3D Animated character.' },
+  { id: '4', name: 'Greek Marble Statue', imageUrl: 'https://images.unsplash.com/photo-1549887534-1541e9326642?w=800&q=80', prompt: 'Classic white marble Greek sculpture. Intricate carved details, smooth stone texture, museum gallery lighting, timeless museum aesthetic.', description: 'Ancient masterpiece.' },
+  { id: '10', name: 'Studio Ghibli Anime', imageUrl: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&q=80', prompt: 'Hand-painted Studio Ghibli anime style. Soft watercolor textures, whimsical atmosphere, lush green background, gentle lighting.', description: 'Japanese animation.' }
+];
+
+const DEFAULT_MAGIC_PREVIEWS: MagicPreviewConfig[] = [
+  { id: 'm1', name: 'Royal King', description: 'Ancient Royalty', prompt: 'A majestic royal king in golden armor with a velvet red cape, sitting on a marble throne, cinematic lighting.' },
+  { id: 'm2', name: 'Anime Hero', description: 'Action Style', prompt: 'A powerful anime protagonist with glowing energy, stylized vibrant colors, sharp lines, cinematic background.' },
+  { id: 'm3', name: 'Cyber Hunter', description: 'Future Warrior', prompt: 'A futuristic cybernetic hunter with neon blue visor, high-tech carbon fiber armor, rainy urban night background.' },
+  { id: 'm4', name: 'Oil Painting', description: 'Classic Art', prompt: 'A museum-quality oil painting with visible brushstrokes, dramatic chiaroscuro lighting, rich deep colors.' }
 ];
 
 export const DEFAULT_ADMIN: AdminSettings = {
   username: 'admin',
   passwordHash: 'admin123',
+  geminiApiKeys: [],
+  magicPreviews: DEFAULT_MAGIC_PREVIEWS,
   coupons: [],
   payment: {
     gateway: 'Razorpay',
@@ -62,11 +72,7 @@ export const storageService = {
 
   async fetchStylesFromDB(): Promise<StyleTemplate[]> {
     try {
-      const { data, error } = await supabase
-        .from('styles')
-        .select('*')
-        .order('displayOrder', { ascending: true });
-        
+      const { data, error } = await supabase.from('styles').select('*').order('created_at', { ascending: true });
       if (error) throw error;
       
       if ((!data || data.length === 0) && !localStorage.getItem(INITIALIZED_KEY)) {
@@ -75,44 +81,35 @@ export const storageService = {
         return DEFAULT_STYLES;
       }
 
-      const styles = (data || []).map((s, idx) => ({ 
-        ...s, 
-        displayOrder: s.displayOrder ?? idx,
-        autoGenerate: s.autoGenerate ?? false
-      }));
-
-      localStorage.setItem(STYLES_CACHE_KEY, JSON.stringify(styles));
+      const styles = data || [];
+      if (styles.length > 0) {
+        localStorage.setItem(STYLES_CACHE_KEY, JSON.stringify(styles));
+      }
       return styles;
     } catch (err) {
-      logger.error('Storage', 'Fetch styles failed', err);
-      return [];
+      return DEFAULT_STYLES;
     }
   },
 
   async saveStyle(style: StyleTemplate): Promise<void> {
     const finalImageUrl = await imageStorage.uploadTemplateImage(style.imageUrl);
     const { error } = await supabase.from('styles').upsert({
-      id: style.id,
-      name: style.name,
-      prompt: style.prompt,
-      description: style.description,
+      ...style,
       imageUrl: finalImageUrl,
-      displayOrder: style.displayOrder ?? 0,
-      autoGenerate: style.autoGenerate ?? false,
       created_at: style.created_at || new Date().toISOString()
     });
-    
-    if (error) {
-      logger.error('Storage', 'Save style error', error);
-      throw error;
-    }
+    if (error) throw error;
     localStorage.removeItem(STYLES_CACHE_KEY);
   },
 
   async deleteStyle(id: string): Promise<void> {
-    const { error } = await supabase.from('styles').delete().eq('id', id);
-    if (error) throw error;
-    localStorage.removeItem(STYLES_CACHE_KEY);
+    try {
+      const response = await supabase.from('styles').delete().eq('id', id);
+      if (response.error) throw response.error;
+      localStorage.removeItem(STYLES_CACHE_KEY);
+    } catch (err: any) {
+      throw err;
+    }
   },
 
   async importStyles(stylesJson: string): Promise<void> {
@@ -131,13 +128,28 @@ export const storageService = {
   async getAdminSettings(): Promise<AdminSettings> {
     try {
       const { data, error } = await supabase.from('settings').select('config').eq('id', 'global').single();
+      
       if (error || !data) {
         await this.saveAdminSettings(DEFAULT_ADMIN);
         return DEFAULT_ADMIN;
       }
+      
       const settings = data.config as AdminSettings;
+      
       if (!settings.tracking) settings.tracking = { metaPixelId: '' };
+      if (!settings.magicPreviews) settings.magicPreviews = DEFAULT_MAGIC_PREVIEWS;
       if (!settings.coupons) settings.coupons = [];
+
+      if (settings.geminiApiKey && (!settings.geminiApiKeys || settings.geminiApiKeys.length === 0)) {
+        settings.geminiApiKeys = [{
+          id: 'legacy-key',
+          key: settings.geminiApiKey,
+          label: 'Default Key',
+          status: 'active',
+          addedAt: Date.now()
+        }];
+      }
+      
       return settings;
     } catch (err) {
       return DEFAULT_ADMIN;
@@ -149,7 +161,10 @@ export const storageService = {
       id: 'global',
       config: settings
     });
-    if (error) throw error;
+    if (error) {
+      logger.error('Storage', 'Failed to save settings', error);
+      throw error;
+    }
   },
 
   isAdminLoggedIn(): boolean {
@@ -176,15 +191,18 @@ export const storageService = {
   async logActivity(eventName: string, eventData: any = {}): Promise<void> {
     const sessionId = localStorage.getItem('styleswap_session_id') || Math.random().toString(36).substring(7);
     localStorage.setItem('styleswap_session_id', sessionId);
+
     try {
-      // Fixed: event_name typo changed to match parameter eventName
       await supabase.from('user_activities').insert({
         event_name: eventName,
         event_data: eventData,
         session_id: sessionId,
         created_at: new Date().toISOString()
       });
-    } catch (err) {}
+    } catch (err) {
+      // Quiet fail to not interrupt user flow
+      console.debug('Activity logging failed', err);
+    }
   },
 
   getCurrencySymbol(currency: string = 'INR'): string {
