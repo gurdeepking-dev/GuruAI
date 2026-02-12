@@ -87,13 +87,13 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
   const handlePreviewKeyframe = async () => {
     if (!photoStart) return alert("Upload a photo first.");
     setLoading(true);
-    setStatus("Analyzing Face Geometry...");
+    setStatus("Matching your face...");
     setRenderError(null);
     try {
       const result = await geminiService.generateStyle(photoStart, prompt, fixPrompt);
       setStyledKeyframe(result);
     } catch (err: any) {
-      setRenderError(err.message || "Face matching failed. Please try a clearer photo.");
+      setRenderError(err.message || "Could not match face. Please use a clearer photo.");
     } finally {
       setLoading(false);
       setStatus('');
@@ -118,14 +118,14 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
     }
 
     setLoading(true);
-    setStatus("Holding Payment for Security...");
+    setStatus("Preparing checkout...");
     try {
       const rzp = new (window as any).Razorpay({
         key: settings.payment.keyId,
         amount: price * 100,
         currency: settings.payment.currency || 'INR',
         name: "AI Cinema Studio",
-        description: `Secured Video: ${duration}s`,
+        description: `High Quality Video: ${duration}s`,
         handler: async (res: any) => {
           const paymentId = res.razorpay_payment_id;
           await storageService.saveTransaction({
@@ -145,7 +145,7 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
       rzp.open();
     } catch (e) {
       setLoading(false);
-      alert("Payment window failed. Refresh and try again.");
+      alert("Payment failed. Please refresh and try again.");
     }
   };
 
@@ -162,9 +162,8 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
         url = await geminiService.generateVideo(photoStart!, prompt, setStatus, photoEndToUse || undefined, isFast, styledKeyframe || undefined);
       }
       
-      // Generation Succeeded -> Capture Payment
       if (paymentId && !paymentId.startsWith('free_')) {
-        setStatus("Verifying & Finalizing Payment...");
+        setStatus("Finalizing...");
         await razorpayService.capturePayment(paymentId, price);
       }
 
@@ -172,15 +171,14 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
       await storageService.updateTransactionStatus(paymentId, { render_status: 'completed', status: 'captured' });
       analytics.track('Purchase', { value: price, currency: 'INR' });
     } catch (err: any) {
-      // Generation Failed -> Auto Refund if paid
-      const msg = err.message || "Synthesis Engine Overload.";
+      const msg = err.message || "Our AI is currently busy.";
       setRenderError(msg);
       
       if (paymentId && !paymentId.startsWith('free_')) {
-        setStatus("Refunding Payment...");
+        setStatus("Returning your payment...");
         await razorpayService.refundPayment(paymentId, price);
         await storageService.updateTransactionStatus(paymentId, { render_status: 'failed', status: 'refunded' });
-        alert("Video generation failed. Your payment has been automatically refunded.");
+        alert("Something went wrong. Your payment has been sent back to you.");
       } else {
         await storageService.updateTransactionStatus(paymentId, { render_status: 'failed' });
       }
@@ -202,10 +200,10 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
       <div className="bg-[#0a0a0a] text-white rounded-[3rem] shadow-2xl overflow-hidden border border-white/5">
         <div className="p-8 pt-12 flex flex-col gap-6 bg-gradient-to-b from-indigo-500/5 to-transparent">
           <div className="text-center space-y-1">
-            <h2 className="text-3xl font-black uppercase italic tracking-tighter text-white serif">Cinema Pro</h2>
+            <h2 className="text-3xl font-black uppercase italic tracking-tighter text-white serif">Cinema Studio</h2>
             <div className="flex items-center justify-center gap-2 mt-2">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Success-or-Refund Secure Mode Active</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Safe Payment: Refund if Error</p>
             </div>
           </div>
           
@@ -221,22 +219,22 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
               <div className="flex items-center justify-center gap-6 py-2">
                 <div className="flex items-center gap-3">
                   <input type="radio" id="single" name="mode" checked={!isCoupleMode} onChange={() => {setIsCoupleMode(false); setStyledKeyframe(null);}} className="accent-indigo-500 w-4 h-4" />
-                  <label htmlFor="single" className="text-[10px] font-black uppercase tracking-widest cursor-pointer text-slate-300">Single Pose</label>
+                  <label htmlFor="single" className="text-[10px] font-black uppercase tracking-widest cursor-pointer text-slate-300">Normal Video</label>
                 </div>
                 <div className="flex items-center gap-3">
                   <input type="radio" id="couple" name="mode" checked={isCoupleMode} onChange={() => {setIsCoupleMode(true); setStyledKeyframe(null);}} className="accent-rose-500 w-4 h-4" />
-                  <label htmlFor="couple" className="text-[10px] font-black uppercase tracking-widest cursor-pointer text-slate-300">Transition / Couple</label>
+                  <label htmlFor="couple" className="text-[10px] font-black uppercase tracking-widest cursor-pointer text-slate-300">Couple / Transition</label>
                 </div>
               </div>
 
               <div className={`grid gap-6 transition-all duration-500 items-start ${isCoupleMode ? 'sm:grid-cols-2' : 'max-w-md mx-auto'}`}>
                 <div className="space-y-4">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Reference Face</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">First Photo</p>
                   <div onClick={() => startInputRef.current?.click()} className="aspect-square bg-[#1a1a1a] rounded-[2.5rem] border border-white/5 flex flex-col items-center justify-center cursor-pointer overflow-hidden shadow-inner group transition-all hover:border-indigo-500/50">
                     {photoStart ? <img src={photoStart} className="w-full h-full object-cover" /> : (
                       <div className="text-center space-y-2">
                         <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-2 text-2xl group-hover:scale-110 transition-transform">📸</div>
-                        <p className="text-[10px] font-black uppercase text-slate-500">Upload Photo</p>
+                        <p className="text-[10px] font-black uppercase text-slate-500">Add Photo</p>
                       </div>
                     )}
                   </div>
@@ -244,12 +242,12 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
 
                 {isCoupleMode && (
                   <div className="space-y-4 animate-in zoom-in-95 duration-300">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">End Target (Optional)</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Second Photo</p>
                     <div onClick={() => endInputRef.current?.click()} className="aspect-square bg-[#1a1a1a] rounded-[2.5rem] border border-white/5 flex flex-col items-center justify-center cursor-pointer overflow-hidden shadow-inner group transition-all hover:border-rose-500/50">
                       {photoEnd ? <img src={photoEnd} className="w-full h-full object-cover" /> : (
                         <div className="text-center space-y-2">
                           <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-2 text-2xl">🏁</div>
-                          <p className="text-[10px] font-black uppercase text-slate-500">Upload Target</p>
+                          <p className="text-[10px] font-black uppercase text-slate-500">Add Photo</p>
                         </div>
                       )}
                     </div>
@@ -260,8 +258,8 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
               {styledKeyframe && (
                 <div className="max-w-md mx-auto space-y-4 animate-in slide-in-from-top-6 duration-700 bg-white/5 p-6 rounded-[3rem] border-2 border-indigo-500/20 shadow-[0_0_80px_rgba(99,102,241,0.1)]">
                   <div className="flex justify-between items-center px-4">
-                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Character Identity Check</p>
-                    <span className="text-[10px] bg-indigo-600 px-3 py-1 rounded-full font-black uppercase">Verified Identity</span>
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Face Match Check</p>
+                    <span className="text-[10px] bg-indigo-600 px-3 py-1 rounded-full font-black uppercase">Face Matched!</span>
                   </div>
                   <div className="aspect-square rounded-[2rem] overflow-hidden shadow-2xl relative border border-white/10" onContextMenu={(e) => e.preventDefault()}>
                     <img src={styledKeyframe} className="w-full h-full object-cover select-none pointer-events-none" />
@@ -274,27 +272,27 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
                 <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 border-t border-white/5 pt-8">
                   <div className="grid sm:grid-cols-2 gap-6">
                     <div className="space-y-3">
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Stage 1: Style & Prompt</p>
-                      <textarea value={prompt} onChange={e => {setPrompt(e.target.value); setStyledKeyframe(null);}} placeholder="e.g. Space explorer on Mars..." className="w-full bg-[#161616] border-2 border-white/5 rounded-2xl p-4 text-xs h-28 resize-none outline-none focus:border-indigo-500 text-white transition-all placeholder:text-slate-700 font-medium" />
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">1. Style & Theme</p>
+                      <textarea value={prompt} onChange={e => {setPrompt(e.target.value); setStyledKeyframe(null);}} placeholder="e.g. In a flower garden, cinematic style..." className="w-full bg-[#161616] border-2 border-white/5 rounded-2xl p-4 text-xs h-28 resize-none outline-none focus:border-indigo-500 text-white transition-all placeholder:text-slate-700 font-medium" />
                     </div>
                     <div className="space-y-3">
-                      <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest ml-1">Stage 2: Identity Precision</p>
-                      <textarea value={fixPrompt} onChange={e => {setFixPrompt(e.target.value); setStyledKeyframe(null);}} placeholder="fix eyes, make mouth wider..." className="w-full bg-[#161616] border-2 border-rose-500/10 rounded-2xl p-4 text-xs h-28 resize-none outline-none focus:border-rose-500 text-white transition-all placeholder:text-slate-700 font-medium" />
+                      <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest ml-1">2. Face Refinement</p>
+                      <textarea value={fixPrompt} onChange={e => {setFixPrompt(e.target.value); setStyledKeyframe(null);}} placeholder="e.g. wider smile, fix eyes..." className="w-full bg-[#161616] border-2 border-rose-500/10 rounded-2xl p-4 text-xs h-28 resize-none outline-none focus:border-rose-500 text-white transition-all placeholder:text-slate-700 font-medium" />
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-6">
                     {!styledKeyframe ? (
                       <button onClick={handlePreviewKeyframe} disabled={loading || !prompt} className="w-full py-6 bg-white text-black rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-slate-100 disabled:opacity-20 transition-all active:scale-95 flex items-center justify-center gap-3">
-                        <span className="text-xl">🔑</span> 1. Verify Facial Match
+                        <span className="text-xl">✨</span> Match Face to Style
                       </button>
                     ) : (
                       <div className="space-y-8 animate-in slide-in-from-top-4">
                         <div className="p-8 bg-indigo-500/10 border border-indigo-500/20 rounded-[2.5rem] text-center space-y-4">
-                          <div className="w-12 h-12 bg-indigo-500 text-white rounded-full flex items-center justify-center mx-auto text-2xl shadow-lg">✨</div>
+                          <div className="w-12 h-12 bg-indigo-500 text-white rounded-full flex items-center justify-center mx-auto text-2xl shadow-lg">✅</div>
                           <div className="space-y-2">
-                             <p className="text-sm font-black text-white italic">Identity Locked • Secure Checkout Ready</p>
-                             <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed max-w-sm mx-auto">Your payment is held until the video is ready. Auto-refund if any error occurs.</p>
+                             <p className="text-sm font-black text-white italic">Ready to Create!</p>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed max-w-sm mx-auto">Payment is held safely. If the video fails, you get a full refund instantly.</p>
                           </div>
                         </div>
 
@@ -307,7 +305,7 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
                           
                           <div className="grid sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Delivery Email</p>
+                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Your Email</p>
                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@email.com" className="w-full bg-[#161616] border border-white/5 rounded-2xl px-6 py-4 text-xs outline-none focus:border-indigo-500 text-white" />
                             </div>
                             <div className="space-y-2">
@@ -320,9 +318,9 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
                           </div>
 
                           <button onClick={() => handleGenerate(false)} disabled={loading} className="w-full py-7 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-[2.5rem] font-black text-2xl shadow-2xl active:scale-95 transition-all border-b-8 border-indigo-900 group">
-                            {loading ? "Securing Session..." : (
+                            {loading ? "Starting..." : (
                                <div className="flex items-center justify-center gap-4">
-                                  <span>Synthesize 4K Cinema</span>
+                                  <span>Create Video</span>
                                   <span className="text-base bg-white/20 px-3 py-1 rounded-full">{currencySymbol}{calculatePrice()}</span>
                                </div>
                             )}
@@ -342,11 +340,11 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
                  <span className="text-2xl text-white">⚠️</span>
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-black text-rose-500 italic serif">Neural Drift Detected</h3>
+                <h3 className="text-xl font-black text-rose-500 italic serif">Something went wrong</h3>
                 <p className="text-xs text-rose-200/70 uppercase leading-relaxed font-bold tracking-widest">{renderError}</p>
-                <p className="text-[9px] text-green-400 font-black uppercase mt-4">Transaction Safely Refunded ✅</p>
+                <p className="text-[9px] text-green-400 font-black uppercase mt-4">Full Refund Sent ✅</p>
               </div>
-              <button onClick={() => setRenderError(null)} className="px-12 py-5 bg-white text-black rounded-2xl font-black text-[10px] uppercase shadow-2xl active:scale-95 transition-all">Retry Designer</button>
+              <button onClick={() => setRenderError(null)} className="px-12 py-5 bg-white text-black rounded-2xl font-black text-[10px] uppercase shadow-2xl active:scale-95 transition-all">Try Again</button>
             </div>
           )}
         </div>
@@ -355,7 +353,7 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
       {videoSamples.length > 0 && (
         <section className="space-y-8">
           <div className="text-center space-y-2">
-            <h3 className="text-3xl font-black text-slate-800 serif italic">Artistic Presets</h3>
+            <h3 className="text-3xl font-black text-slate-800 serif italic">Popular Styles</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             {videoSamples.map((sample) => (
@@ -383,7 +381,7 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
             <button onClick={() => setVideoUrl(null)} className="absolute -top-12 sm:-top-4 sm:-right-12 w-12 h-12 bg-white/10 hover:bg-rose-600 rounded-full text-white flex items-center justify-center font-black transition-all z-[130]">✕</button>
           </div>
           <div className="mt-12 flex flex-col sm:flex-row gap-4 w-full max-w-md">
-            <a href={videoUrl} download="ai-masterpiece.mp4" className="flex-1 py-6 bg-white text-black rounded-[2rem] font-black uppercase text-[11px] tracking-[0.2em] text-center shadow-2xl border-b-8 border-slate-300">Download Masterpiece 🎬</a>
+            <a href={videoUrl} download="ai-video.mp4" className="flex-1 py-6 bg-white text-black rounded-[2rem] font-black uppercase text-[11px] tracking-[0.2em] text-center shadow-2xl border-b-8 border-slate-300">Download Video 🎬</a>
           </div>
         </div>
       )}
@@ -393,16 +391,16 @@ const VideoView: React.FC<VideoViewProps> = ({ prefill, onClearPrefill }) => {
           <div className="relative">
             <div className="w-32 h-32 border-[12px] border-indigo-500/10 rounded-full"></div>
             <div className="absolute inset-0 w-32 h-32 border-[12px] border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-            <div className="absolute inset-0 flex items-center justify-center text-4xl">🚀</div>
+            <div className="absolute inset-0 flex items-center justify-center text-4xl">🎬</div>
           </div>
           <div className="space-y-4 max-w-sm">
             <div className="flex flex-col items-center gap-2">
-              <p className="text-white font-black uppercase tracking-[0.5em] text-sm animate-pulse">{status || 'Engaging Neural Engine...'}</p>
+              <p className="text-white font-black uppercase tracking-[0.5em] text-sm animate-pulse">{status || 'AI is working...'}</p>
               <div className="bg-white/5 px-4 py-1.5 rounded-full border border-white/10 mt-2">
-                <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em]">Transaction Protected by Auto-Refund</p>
+                <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em]">Full Refund if Error occurs</p>
               </div>
             </div>
-            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-[0.2em] leading-loose">Synthesizing 4K cinematic motion. This takes 2-4 minutes. Payment will only be finalized upon success.</p>
+            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-[0.2em] leading-loose">Creating high quality cinematic motion. This takes 2-4 minutes. Payment will only be taken if the video is success.</p>
           </div>
         </div>
       )}

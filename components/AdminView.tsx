@@ -12,6 +12,7 @@ import AdminPayment from './admin/AdminPayment';
 import AdminTracking from './admin/AdminTracking';
 import AdminActivity from './admin/AdminActivity';
 import AdminSecurity from './admin/AdminSecurity';
+import AdminKeys from './admin/AdminKeys';
 
 const AdminView: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(storageService.isAdminLoggedIn());
@@ -47,6 +48,7 @@ const AdminView: React.FC = () => {
   const tabs = [
     { id: 'styles', label: 'Styles', icon: '🎨' },
     { id: 'samples', label: 'Cinema', icon: '🎬' },
+    { id: 'keys', label: 'API Keys', icon: '🔑' },
     { id: 'tx', label: 'History', icon: '📜' },
     { id: 'coupons', label: 'Coupons', icon: '🏷️' },
     { id: 'payment', label: 'Pricing', icon: '💳' },
@@ -57,7 +59,6 @@ const AdminView: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 sm:space-y-10 pb-20 px-2 sm:px-4">
-      {/* Scrollable Tab Container */}
       <div className="sticky top-24 z-[60] w-full">
         <div className="flex bg-white/90 backdrop-blur-md p-1.5 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-xl overflow-x-auto scrollbar-hide no-scrollbar touch-pan-x">
           <div className="flex gap-1 min-w-max">
@@ -73,13 +74,12 @@ const AdminView: React.FC = () => {
             ))}
           </div>
         </div>
-        {/* Mobile Scroll Indicator (Fade effect) */}
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white/50 to-transparent pointer-events-none rounded-r-3xl sm:hidden"></div>
       </div>
 
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[60vh]">
         {activeTab === 'styles' && <AdminStyles />}
         {activeTab === 'samples' && <AdminSamples />}
+        {activeTab === 'keys' && <AdminKeys />}
         {activeTab === 'tx' && <AdminTransactions />}
         {activeTab === 'coupons' && <AdminCoupons />}
         {activeTab === 'payment' && <AdminPayment />}
