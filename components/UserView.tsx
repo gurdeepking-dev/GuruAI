@@ -205,12 +205,13 @@ const UserView: React.FC<UserViewProps> = ({
   };
 
   const handlePaymentComplete = async (paymentId: string, paidItemIds: string[]) => {
+    // FIX: Changing status from 'success' to 'captured' to match valid TransactionRecord types
     const tx: TransactionRecord = {
       razorpay_payment_id: paymentId,
       user_email: user?.email || 'guest@anonymous.com',
       amount: cart.reduce((s, i) => s + i.price, 0),
       items: cart.map(i => i.styleName),
-      status: 'success'
+      status: 'captured'
     };
     await storageService.saveTransaction(tx);
 
@@ -354,7 +355,7 @@ const UserView: React.FC<UserViewProps> = ({
               </div>
             ) : (
               !state.isLoading && (
-                <button onClick={() => handleGenerate(s)} className="w-full py-5 bg-rose-600 text-white rounded-[1.5rem] font-black text-[12px] uppercase tracking-widest shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all flex items-center justify-center gap-3 group/btn active:scale-95 border-b-4 border-rose-800">
+                <button onClick={() => handleGenerate(s)} className="w-full py-5 bg-rose-600 text-white rounded-[1.5rem] font-black text-2xl uppercase tracking-widest shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all flex items-center justify-center gap-3 group/btn active:scale-95 border-b-4 border-rose-800">
                   <span>Transform My Photo ✨</span>
                 </button>
               )

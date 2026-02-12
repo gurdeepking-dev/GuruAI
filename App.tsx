@@ -1,7 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
-import UserView from './components/UserView';
+import ValentineView from './components/ValentineView';
+import PhotoView from './components/PhotoView';
+import VideoView from './components/VideoView';
+import AIToolsView from './components/AIToolsView';
 import AdminView from './components/AdminView';
 import AboutUs from './components/AboutUs';
 import ContactUs from './components/ContactUs';
@@ -11,14 +14,24 @@ import Refund from './components/Refund';
 import Shipping from './components/Shipping';
 import { CartItem, ViewType } from './types';
 import { analytics } from './services/analytics';
+import { storageService } from './services/storage';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewType | 'terms' | 'privacy' | 'refund' | 'shipping'>('home');
+  const [currentView, setCurrentView] = useState<ViewType>('valentine');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  
+  // State for pre-filling video studio from other views
+  const [videoPrefill, setVideoPrefill] = useState<{ photo: string, prompt: string, isVerified?: boolean } | null>(null);
 
   useEffect(() => {
     analytics.init();
+    // Record website visit
+    storageService.logActivity('site_visit', {
+      referrer: document.referrer,
+      userAgent: navigator.userAgent,
+      screenSize: `${window.innerWidth}x${window.innerHeight}`
+    });
   }, []);
 
   const addToCart = (item: CartItem) => {
@@ -34,25 +47,35 @@ const App: React.FC = () => {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
+  const handleAnimate = (photo: string, prompt: string, isVerified: boolean = false) => {
+    setVideoPrefill({ photo, prompt, isVerified });
+    setCurrentView('video');
+    analytics.track('NavigateToVideo', { source: 'valentine_animate', is_verified: isVerified });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const renderContent = () => {
     switch(currentView) {
-      case 'admin':
-        return <AdminView />;
-      case 'about':
-        return <AboutUs />;
-      case 'contact':
-        return <ContactUs />;
-      case 'terms':
-        return <Terms />;
-      case 'privacy':
-        return <Privacy />;
-      case 'refund':
-        return <Refund />;
-      case 'shipping':
-        return <Shipping />;
+      case 'admin': return <AdminView />;
+      case 'about': return <AboutUs />;
+      case 'contact': return <ContactUs />;
+      case 'terms': return <Terms />;
+      case 'privacy': return <Privacy />;
+      case 'refund': return <Refund />;
+      case 'shipping': return <Shipping />;
+      case 'photo': return <PhotoView addToCart={addToCart} />;
+      case 'video': 
+        return (
+          <VideoView 
+            prefill={videoPrefill} 
+            onClearPrefill={() => setVideoPrefill(null)} 
+          />
+        );
+      case 'aitools': return <AIToolsView />;
+      case 'valentine':
       default:
         return (
-          <UserView 
+          <ValentineView 
             cart={cart}
             setCart={setCart}
             user={null}
@@ -62,15 +85,18 @@ const App: React.FC = () => {
             removeFromCart={removeFromCart}
             onLoginRequired={() => {}}
             onUserUpdate={() => {}}
+            onAnimate={handleAnimate}
           />
         );
     }
   };
 
+  const isMainTab = ['valentine', 'video', 'photo', 'aitools'].includes(currentView);
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-rose-50/30">
       <Header 
-        currentView={currentView as ViewType}
+        currentView={currentView}
         setView={(v) => setCurrentView(v)}
         cartCount={cart.length}
         onOpenCheckout={() => {
@@ -82,6 +108,37 @@ const App: React.FC = () => {
         onLogout={() => {}}
       />
       
+      {isMainTab && (
+        <div className="container mx-auto px-4 mt-8 flex justify-center sticky top-24 z-40">
+          <div className="bg-white/80 backdrop-blur-xl p-1.5 rounded-[2.5rem] shadow-2xl border border-rose-100/50 flex gap-1 w-full max-w-xl transition-all duration-500">
+            {[
+              { id: 'valentine', label: 'Valentine', icon: '💖' },
+              { id: 'video', label: 'Video', icon: '🎬' },
+              { id: 'photo', label: 'Photo', icon: '🖼️' },
+              { id: 'aitools', label: 'AI Tools', icon: '🛠️' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setCurrentView(tab.id as ViewType);
+                  if (tab.id !== 'video') setVideoPrefill(null);
+                }}
+                className={`flex-1 py-3.5 px-4 rounded-[2rem] font-black text-[10px] uppercase tracking-widest transition-all duration-700 flex items-center justify-center gap-2 relative overflow-hidden group ${
+                  currentView === tab.id 
+                  ? 'text-white scale-[1.05]' 
+                  : 'text-slate-400 hover:text-rose-500'
+                }`}
+              >
+                {currentView === tab.id && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-fuchsia-500 animate-in fade-in zoom-in duration-500"></div>
+                )}
+                <span className="relative z-10">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <main className="flex-grow container mx-auto px-4 py-8">
         {renderContent()}
       </main>
@@ -95,7 +152,7 @@ const App: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-6 text-[10px] uppercase tracking-widest font-black text-slate-400">
-            <button onClick={() => setCurrentView('home')} className="hover:text-rose-600 transition-colors">Home</button>
+            <button onClick={() => setCurrentView('valentine')} className="hover:text-rose-600 transition-colors">Home</button>
             <button onClick={() => setCurrentView('about')} className="hover:text-rose-600 transition-colors">Who We Are</button>
             <button onClick={() => setCurrentView('contact')} className="hover:text-rose-600 transition-colors">Need Help?</button>
             <button onClick={() => setCurrentView('terms')} className="hover:text-rose-600 transition-colors">Rules</button>
@@ -109,7 +166,7 @@ const App: React.FC = () => {
           <div className="space-y-2">
             <p className="font-bold text-slate-900 uppercase">chatgpt digital store</p>
             <p className="text-[10px] font-medium max-w-lg mx-auto leading-relaxed">
-              Making your photos look amazing with AI. Perfect for Valentine's Day and special moments.
+              Premium AI Art, Video & Audio Studio.
             </p>
             <p className="pt-4 text-xs font-bold text-slate-400">&copy; {new Date().getFullYear()} All Rights Reserved.</p>
           </div>

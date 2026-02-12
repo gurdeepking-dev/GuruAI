@@ -10,6 +10,15 @@ export interface StyleTemplate {
   created_at?: string;
 }
 
+export interface SampleVideo {
+  id: string;
+  title: string;
+  videoUrl: string;
+  thumbnailUrl: string;
+  prompt: string;
+  displayOrder: number;
+}
+
 export interface ApiKeyRecord {
   id: string;
   key: string;
@@ -33,6 +42,7 @@ export interface PaymentConfig {
   currency: string;
   enabled: boolean;
   photoPrice: number;
+  videoBasePrice: number;
 }
 
 export interface TrackingConfig {
@@ -47,6 +57,9 @@ export interface AdminSettings {
   geminiApiKey?: string;
   geminiApiKeys?: ApiKeyRecord[];
   coupons?: Coupon[];
+  klingAccessKey?: string;
+  klingSecretKey?: string;
+  videoSamples?: SampleVideo[];
 }
 
 export interface CartItem {
@@ -67,7 +80,8 @@ export interface TransactionRecord {
   user_email: string;
   amount: number;
   items: string[];
-  status: 'success' | 'failed';
+  status: 'authorized' | 'captured' | 'failed' | 'refund_requested' | 'refunded';
+  render_status?: 'pending' | 'completed' | 'failed';
   created_at?: string;
 }
 
@@ -79,4 +93,4 @@ export interface UserActivity {
   created_at?: string;
 }
 
-export type ViewType = 'home' | 'admin' | 'about' | 'contact';
+export type ViewType = 'valentine' | 'photo' | 'video' | 'aitools' | 'admin' | 'about' | 'contact' | 'terms' | 'privacy' | 'refund' | 'shipping';
